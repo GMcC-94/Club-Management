@@ -1,0 +1,17 @@
+package components
+
+import (
+	"club-management/internal/middleware"
+	"context"
+)
+
+func getCSRFToken(ctx context.Context) string {
+	if token, ok := ctx.Value(middleware.CSRFTokenKey).(string); ok {
+		return token
+	}
+	return ""
+}
+
+templ CSRFInput() {
+	<input type="hidden" name="gorilla.csrf.Token" value={ getCSRFToken(ctx) }/>
+}

@@ -1,0 +1,240 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"fmt"
+)
+
+templ UserList(user *types.User, users []types.User) {
+	@layout.Base("User Management", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("User Management", "/dashboard", true, "/users/new")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					if len(users) == 0 {
+						@components.EmptyState(
+							"users",
+							"No Users Yet",
+							"Add your first user to get started.",
+						) {
+							<a href="/users/new" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Add User
+							</a>
+						}
+					} else {
+						<div class="glass rounded-2xl overflow-hidden">
+							<div class="overflow-x-auto">
+								<table class="w-full">
+									<thead class="bg-white/10">
+										<tr>
+											<th class="px-6 py-4 text-left text-white font-semibold">Username</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Email</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Role</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Created</th>
+											<th class="px-6 py-4 text-center text-white font-semibold">Actions</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-white/10">
+										for _, u := range users {
+											<tr class="hover:bg-white/5 transition">
+												<td class="px-6 py-4 text-white/90">{ u.Username }</td>
+												<td class="px-6 py-4 text-white/90">{ u.Email.String }</td>
+												<td class="px-6 py-4">
+													if u.Role == "admin" {
+														@components.Badge("Admin", "success")
+													} else {
+														@components.Badge("Coach", "")
+													}
+												</td>
+												<td class="px-6 py-4 text-white/70">{ u.CreatedAt.Format("02 Jan 2006") }</td>
+												<td class="px-6 py-4 text-center">
+													<a href={ templ.URL(fmt.Sprintf("/users/edit?id=%d", u.ID)) } class="text-white/70 hover:text-white transition">
+														Edit
+													</a>
+												</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ UserNew(user *types.User) {
+	@layout.Base("Add User", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Add User", "/users", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-3xl mx-auto">
+					<div class="glass rounded-2xl p-6 md:p-8">
+						<div class="mb-6">
+							<h2 class="text-2xl font-bold text-white mb-2">New User</h2>
+							<p class="text-white/70">Create a new user account</p>
+						</div>
+						@UserForm(nil, false)
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ UserEdit(currentUser *types.User, editUser *types.User) {
+	@layout.Base("Edit User", currentUser) {
+		<div class="min-h-screen">
+			@components.PageHeader("Edit User", "/users", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-3xl mx-auto">
+					<div class="glass rounded-2xl p-6 md:p-8">
+						<div class="mb-6">
+							<h2 class="text-2xl font-bold text-white mb-2">{ editUser.Username }</h2>
+							<p class="text-white/70">Update user details</p>
+						</div>
+						@UserForm(editUser, true)
+					</div>
+					if editUser.ID != currentUser.ID {
+						<div class="mt-6 glass rounded-2xl p-6">
+							<h3 class="text-xl font-bold text-white mb-2">Danger Zone</h3>
+							<p class="text-white/70 mb-4">Deleting this user will remove their access permanently.</p>
+							<button
+								type="button"
+								onclick={ templ.ComponentScript{Call: fmt.Sprintf("confirmDelete(%d)", editUser.ID)} }
+								class="px-6 py-3 bg-red-500/20 text-red-300 border-2 border-red-500/50 rounded-xl font-semibold hover:bg-red-500/30 transition"
+							>
+								Delete User
+							</button>
+						</div>
+						<script>
+							function confirmDelete(userId) {
+								if (confirm('Are you sure you want to delete this user?')) {
+									window.location.href = '/users/delete?id=' + userId;
+								}
+							}
+						</script>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ UserForm(user *types.User, isEdit bool) {
+	<form method="POST" action={ templ.URL(getUserFormAction(isEdit, user)) } class="space-y-6">
+		@components.CSRFInput()
+		<!-- Username -->
+		<div>
+			<label for="username" class="block text-white font-medium mb-2">Username *</label>
+			<input
+				type="text"
+				id="username"
+				name="username"
+				value={ getUserUsername(user) }
+				required
+				class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+				placeholder="e.g., john.smith"
+			/>
+		</div>
+		<!-- Email -->
+		<div>
+			<label for="email" class="block text-white font-medium mb-2">Email *</label>
+			<input
+				type="email"
+				id="email"
+				name="email"
+				value={ getUserEmail(user) }
+				required
+				class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+				placeholder="e.g., john.smith@club.com"
+			/>
+		</div>
+		<!-- Role -->
+		<div>
+			<label for="role" class="block text-white font-medium mb-2">Role *</label>
+			<select
+				id="role"
+				name="role"
+				required
+				class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+			>
+				<option value="admin" selected?={ getUserRole(user) == "admin" } class="bg-purple-900">Admin</option>
+				<option value="coach" selected?={ getUserRole(user) == "coach" } class="bg-purple-900">Coach</option>
+				<option value="treasurer" selected?={ getUserRole(user) == "treasurer" } class="bg-purple-900">Treasurer</option>
+			</select>
+			<p class="text-white/60 text-sm mt-1">Admin: full access | Coach: attendance only | Treasurer: attendance + finances</p>
+		</div>
+		<!-- Password -->
+		<div>
+			<label for="password" class="block text-white font-medium mb-2">
+				if isEdit {
+					Password (leave blank to keep current)
+				} else {
+					Password *
+				}
+			</label>
+			<input
+				type="password"
+				id="password"
+				name="password"
+				required?={ !isEdit }
+				minlength="6"
+				class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+				placeholder="Minimum 6 characters"
+			/>
+		</div>
+		<!-- Action Buttons -->
+		<div class="flex gap-4 pt-4">
+			<a
+				href="/users"
+				class="flex-1 py-3 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition text-center"
+			>
+				Cancel
+			</a>
+			<button
+				type="submit"
+				class="flex-1 py-3 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+			>
+				if isEdit {
+					Update User
+				} else {
+					Create User
+				}
+			</button>
+		</div>
+	</form>
+}
+
+// Helper functions
+func getUserFormAction(isEdit bool, user *types.User) string {
+	if isEdit && user != nil {
+		return fmt.Sprintf("/users/update?id=%d", user.ID)
+	}
+	return "/users/create"
+}
+
+func getUserUsername(user *types.User) string {
+	if user != nil {
+		return user.Username
+	}
+	return ""
+}
+
+func getUserEmail(user *types.User) string {
+	if user != nil {
+		return user.Email.String
+	}
+	return ""
+}
+
+func getUserRole(user *types.User) string {
+	if user != nil {
+		return user.Role
+	}
+	return "coach"
+}

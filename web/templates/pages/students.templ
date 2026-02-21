@@ -1,0 +1,81 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"strconv"
+)
+
+templ Students(user *types.User, students []types.Student) {
+	@layout.Base("Students", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Students", "/dashboard", true, "/students/new")
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					if len(students) == 0 {
+						@components.EmptyState(
+							"users",
+							"No Students Yet",
+							"Add your first student to get started.",
+						) {
+							<a href="/students/new" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Add Student
+							</a>
+						}
+					} else {
+						<!-- Student Grid -->
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+							for _, student := range students {
+								@StudentCard(student)
+							}
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ StudentCard(student types.Student) {
+	<div class="glass rounded-2xl p-6 hover:scale-105 transition-transform">
+		<div class="flex items-start justify-between mb-4">
+			<div>
+				<h3 class="text-xl font-bold text-white">{ student.FirstName } { student.LastName }</h3>
+				if student.Age.Valid {
+					<p class="text-white/70 text-sm">Age { strconv.Itoa(int(student.Age.Int32)) }</p>
+				}
+			</div>
+			if student.Status == "active" {
+				@components.Badge("Active", "success")
+			} else {
+				@components.Badge("Inactive", "")
+			}
+		</div>
+		<div class="space-y-2 mb-4">
+			<div class="flex items-center justify-between text-sm">
+				<span class="text-white/70">Belt:</span>
+				<span class="text-white font-medium">{ student.BeltLevel }</span>
+			</div>
+			if student.WeightRange.Valid {
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-white/70">Weight:</span>
+					<span class="text-white font-medium">{ student.WeightRange.String }</span>
+				</div>
+			}
+			if student.FightExperience.Valid {
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-white/70">Experience:</span>
+					<span class="text-white font-medium">{ student.FightExperience.String }</span>
+				</div>
+			}
+		</div>
+		<a
+			href={ templ.URL("/students/edit?id=" + strconv.Itoa(student.ID)) }
+			class="block w-full text-center py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium"
+		>
+			Edit Profile
+		</a>
+	</div>
+}

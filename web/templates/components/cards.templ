@@ -1,0 +1,61 @@
+package components
+
+templ QuickActionCard(title, description, href, iconName string) {
+	<a href={ templ.URL(href) } class="glass rounded-2xl p-6 hover:scale-105 transition-transform cursor-pointer">
+		<div class="flex items-center justify-between mb-4">
+			<div class="bg-white/20 p-3 rounded-xl">
+				@Icon(iconName)
+			</div>
+		</div>
+		<h3 class="text-xl font-bold text-white mb-2">{ title }</h3>
+		<p class="text-white/70 text-sm">{ description }</p>
+	</a>
+}
+
+templ EmptyState(iconName, title, description string) {
+	<div class="glass rounded-2xl p-8 text-center">
+		<div class="w-16 h-16 text-white/50 mx-auto mb-4">
+			@Icon(iconName)
+		</div>
+		<h3 class="text-2xl font-bold text-white mb-2">{ title }</h3>
+		<p class="text-white/70">{ description }</p>
+		{ children... }
+	</div>
+}
+
+templ PageHeader(title string, backHref string, showAdd bool, addHref string) {
+	<div class="glass rounded-2xl p-4 mb-6">
+		<div class="flex items-center justify-between">
+			if backHref != "" {
+				<a href={ templ.URL(backHref) } class="text-white/90 hover:text-white transition flex items-center gap-2">
+					@Icon("back")
+					<span class="hidden sm:inline">Back</span>
+				</a>
+			} else {
+				<div class="w-6"></div>
+			}
+			<h1 class="text-xl md:text-2xl font-bold text-white">{ title }</h1>
+			if showAdd && addHref != "" {
+				<a href={ templ.URL(addHref) } class="bg-white text-purple-700 px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition flex items-center gap-2">
+					<span>+</span>
+					<span class="hidden sm:inline">Add</span>
+				</a>
+			} else {
+				<div class="w-6"></div>
+			}
+		</div>
+	</div>
+}
+
+templ Badge(text, variant string) {
+	switch variant {
+		case "success":
+			<span class="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-medium">{ text }</span>
+		case "danger":
+			<span class="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm font-medium">{ text }</span>
+		case "warning":
+			<span class="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm font-medium">{ text }</span>
+		default:
+			<span class="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm font-medium">{ text }</span>
+	}
+}

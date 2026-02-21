@@ -1,0 +1,105 @@
+package components
+
+import (
+	"club-management/internal/types"
+	"strconv"
+)
+
+// Helper function to check if ID is in slice
+func contains(ids []int, id int) bool {
+	for _, v := range ids {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+templ AttendanceStudentRow(student types.Student, isOffSchedule bool) {
+	<label
+		class="student-row flex items-center justify-between p-4 rounded-xl bg-white/10 border-2 border-white/20 cursor-pointer transition hover:bg-white/15"
+		id={ "row_" + strconv.Itoa(student.ID) }
+	>
+		<div class="flex items-center gap-4">
+			<input
+				type="checkbox"
+				name={ "student_" + strconv.Itoa(student.ID) }
+				id={ "student_" + strconv.Itoa(student.ID) }
+				value="present"
+				onchange={ templ.ComponentScript{Call: "toggleAttendance(" + strconv.Itoa(student.ID) + ")"} }
+				class="w-6 h-6 rounded-lg"
+			/>
+			<div>
+				<div class="text-white font-semibold">{ student.FirstName } { student.LastName }</div>
+				<div class="text-white/70 text-sm">
+					{ student.BeltLevel }
+					if isOffSchedule {
+						<span class="text-yellow-300 ml-2">(Off Schedule)</span>
+					}
+				</div>
+			</div>
+		</div>
+		<div class="flex items-center gap-2">
+			if student.Age.Valid {
+				<span class="text-white/70 text-sm">Age { strconv.Itoa(int(student.Age.Int32)) }</span>
+			}
+		</div>
+	</label>
+}
+
+templ AttendanceStudentList(students []types.Student) {
+	if len(students) == 0 {
+		<div class="text-white/70 text-center py-8">
+			<p>No students scheduled for this class.</p>
+			<p class="text-sm mt-2">Students can be added in the Admin panel.</p>
+		</div>
+	} else {
+		<div class="space-y-3" id="students-list-container">
+			for _, student := range students {
+				@AttendanceStudentRow(student, false)
+			}
+		</div>
+		<div class="mt-6 p-4 bg-white/5 rounded-lg">
+			<p class="text-white/70 text-sm mb-3">
+				<strong>Add student not on schedule:</strong>
+			</p>
+			<button
+				type="button"
+				hx-get="/attendance/students/search"
+				hx-target="#search-results"
+				hx-swap="innerHTML"
+				class="w-full py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium"
+			>
+				+ Add Other Student
+			</button>
+			<div id="search-results" class="mt-3"></div>
+		</div>
+	}
+}
+
+templ StudentSearch(allStudents []types.Student, scheduledIDs []int) {
+	<div class="space-y-2">
+		<input
+			type="text"
+			id="student-search"
+			placeholder="Search students..."
+			class="w-full px-4 py-2 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+			oninput="filterStudents(this.value)"
+		/>
+		<div id="student-search-results" class="space-y-2 max-h-60 overflow-y-auto">
+			for _, student := range allStudents {
+				if !contains(scheduledIDs, student.ID) && student.Status == "active" {
+					<button
+						type="button"
+						class="w-full text-left p-3 rounded-lg bg-white/10 hover:bg-white/20 transition text-white search-student-item"
+						onclick={ templ.ComponentScript{Call: "addOffScheduleStudent(" + strconv.Itoa(student.ID) + ", '" + student.FirstName + " " + student.LastName + "', '" + student.BeltLevel + "')"} }
+						data-student-name={ student.FirstName + " " + student.LastName }
+					>
+						<div class="font-semibold">{ student.FirstName } { student.LastName }</div>
+						<div class="text-sm text-white/70">{ student.BeltLevel }</div>
+					</button>
+				}
+			}
+		</div>
+	</div>
+}

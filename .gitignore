@@ -1,0 +1,42 @@
+# Binaries
+main
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Go workspace file
+go.work
+
+# Generated templ files
+*_templ.go
+
+# Environment files
+.env
+.env.local
+
+# Docker volumes
+postgres_data/
+
+# Backups
+backups/*.sql.gz
+
+# Uploads
+uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

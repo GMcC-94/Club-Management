@@ -1,0 +1,165 @@
+{{template "base.html" .}}
+
+{{define "title"}}Take Attendance - Club Management{{end}}
+
+{{define "content"}}
+<div class="min-h-screen">
+    <!-- Header -->
+    <div class="glass fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <a href="/dashboard" class="text-white/90 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <h1 class="text-xl md:text-2xl font-bold text-white">Take Attendance</h1>
+                <div class="w-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-wrapper container mx-auto px-4 pt-24 pb-8">
+        <div class="max-w-4xl mx-auto">
+            
+            {{if not .Classes}}
+            <div class="glass rounded-2xl p-8 text-center">
+                <svg class="w-16 h-16 text-white/50 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-2xl font-bold text-white mb-2">No Classes Today</h3>
+                <p class="text-white/70">There are no scheduled classes for today.</p>
+                <a href="/dashboard" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+                    Back to Dashboard
+                </a>
+            </div>
+            {{else}}
+            
+            <!-- Select Class -->
+            <div class="glass rounded-2xl p-6 mb-6">
+                <h3 class="text-xl font-bold text-white mb-4">Select Class</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="class-selector">
+                    {{range .Classes}}
+                    <button 
+                        onclick="selectClass({{.ID}}, '{{.Name}}')"
+                        class="class-btn text-left p-4 rounded-xl bg-white/10 border-2 border-white/20 hover:border-white/50 hover:bg-white/20 transition cursor-pointer"
+                        data-class-id="{{.ID}}"
+                    >
+                        <div class="font-semibold text-white text-lg">{{.Name}}</div>
+                        <div class="text-white/70 text-sm">{{.StartTime.Format "15:04"}}</div>
+                    </button>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Attendance Form -->
+            <div id="attendance-form" class="hidden">
+                <form method="POST" action="/attendance/submit" id="attendanceForm">
+                    <input type="hidden" name="class_id" id="selected_class_id">
+                    <input type="hidden" name="date" value="{{.Date}}">
+                    
+                    <div class="glass rounded-2xl p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-white">Students</h3>
+                            <span class="text-white/70 text-sm" id="attendance-count">0 / 0</span>
+                        </div>
+                        <div id="students-list" class="space-y-3">
+                            <!-- Students will be loaded here -->
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button 
+                            type="button"
+                            onclick="cancelAttendance()"
+                            class="flex-1 py-4 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            class="flex-1 py-4 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+                        >
+                            Submit Attendance
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentClassId = null;
+
+    function selectClass(classId, className) {
+        currentClassId = classId;
+        document.getElementById('selected_class_id').value = classId;
+        
+        // Update UI
+        document.getElementById('class-selector').classList.add('hidden');
+        document.getElementById('attendance-form').classList.remove('hidden');
+        
+        // Highlight selected class button
+        document.querySelectorAll('.class-btn').forEach(btn => {
+            if (btn.dataset.classId == classId) {
+                btn.classList.add('border-white', 'bg-white/30');
+            }
+        });
+        
+        // Load students for this class
+        loadStudents(classId);
+    }
+
+    function cancelAttendance() {
+        document.getElementById('class-selector').classList.remove('hidden');
+        document.getElementById('attendance-form').classList.add('hidden');
+        document.querySelectorAll('.class-btn').forEach(btn => {
+            btn.classList.remove('border-white', 'bg-white/30');
+        });
+        currentClassId = null;
+    }
+
+    function loadStudents(classId) {
+        // This would normally be an HTMX call or fetch request
+        // For now, showing placeholder
+        const studentsList = document.getElementById('students-list');
+        studentsList.innerHTML = '<div class="text-white/70 text-center py-8">Loading students...</div>';
+        
+        // Simulate loading - in production, this would fetch from the server
+        setTimeout(() => {
+            // Show message if no students
+            studentsList.innerHTML = `
+                <div class="text-white/70 text-center py-8">
+                    <p>No students scheduled for this class.</p>
+                    <p class="text-sm mt-2">Students can be added in the Admin panel.</p>
+                </div>
+            `;
+        }, 500);
+    }
+
+    function toggleAttendance(studentId) {
+        const checkbox = document.getElementById('student_' + studentId);
+        const button = checkbox.closest('.student-row');
+        
+        if (checkbox.checked) {
+            button.classList.add('bg-green-500/20', 'border-green-400/50');
+            button.classList.remove('bg-white/10', 'border-white/20');
+        } else {
+            button.classList.remove('bg-green-500/20', 'border-green-400/50');
+            button.classList.add('bg-white/10', 'border-white/20');
+        }
+        
+        updateAttendanceCount();
+    }
+
+    function updateAttendanceCount() {
+        const total = document.querySelectorAll('input[type="checkbox"][name^="student_"]').length;
+        const present = document.querySelectorAll('input[type="checkbox"][name^="student_"]:checked').length;
+        document.getElementById('attendance-count').textContent = present + ' / ' + total;
+    }
+</script>
+{{end}}

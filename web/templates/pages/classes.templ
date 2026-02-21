@@ -1,0 +1,81 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"strconv"
+)
+
+templ Classes(user *types.User, classes []types.Class) {
+	@layout.Base("Classes", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Classes", "/dashboard", true, "/classes/new")
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					if len(classes) == 0 {
+						@components.EmptyState(
+							"clipboard",
+							"No Classes Yet",
+							"Create your first class to get started with scheduling.",
+						) {
+							<a href="/classes/new" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Add Class
+							</a>
+						}
+					} else {
+						<!-- Classes Grid -->
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+							for _, class := range classes {
+								@ClassCard(class)
+							}
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ ClassCard(class types.Class) {
+	<div class="glass rounded-2xl p-6 hover:scale-105 transition-transform">
+		<div class="flex items-start justify-between mb-4">
+			<div>
+				<h3 class="text-xl font-bold text-white">{ class.Name }</h3>
+				<p class="text-white/70 text-sm">{ getDayName(class.DayOfWeek) }</p>
+			</div>
+			if class.IsActive {
+				@components.Badge("Active", "success")
+			} else {
+				@components.Badge("Inactive", "")
+			}
+		</div>
+		<div class="space-y-2 mb-4">
+			<div class="flex items-center justify-between text-sm">
+				<span class="text-white/70">Start Time:</span>
+				<span class="text-white font-medium">{ class.StartTime.Format("15:04") }</span>
+			</div>
+			if class.EndTime.Valid {
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-white/70">End Time:</span>
+					<span class="text-white font-medium">{ class.EndTime.Time.Format("15:04") }</span>
+				</div>
+			}
+		</div>
+		<a
+			href={ templ.URL("/classes/edit?id=" + strconv.Itoa(class.ID)) }
+			class="block w-full text-center py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium"
+		>
+			Edit Class
+		</a>
+	</div>
+}
+
+func getDayName(day int) string {
+	days := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+	if day >= 0 && day < len(days) {
+		return days[day]
+	}
+	return ""
+}

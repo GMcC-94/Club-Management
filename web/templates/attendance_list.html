@@ -1,0 +1,72 @@
+{{template "base.html" .}}
+
+{{define "title"}}Attendance History - Club Management{{end}}
+
+{{define "content"}}
+<div class="min-h-screen">
+    <!-- Header -->
+    <div class="glass fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <a href="/dashboard" class="text-white/90 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <h1 class="text-xl md:text-2xl font-bold text-white">Attendance History</h1>
+                <div class="w-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-wrapper container mx-auto px-4 pt-24 pb-8">
+        <div class="max-w-6xl mx-auto">
+            
+            {{if not .Records}}
+            <div class="glass rounded-2xl p-8 text-center">
+                <svg class="w-16 h-16 text-white/50 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <h3 class="text-2xl font-bold text-white mb-2">No Attendance Records</h3>
+                <p class="text-white/70">Start taking attendance to see records here.</p>
+            </div>
+            {{else}}
+            
+            <!-- Attendance Records -->
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-white/10">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-white font-semibold">Date</th>
+                                <th class="px-6 py-4 text-left text-white font-semibold">Student</th>
+                                <th class="px-6 py-4 text-left text-white font-semibold">Class</th>
+                                <th class="px-6 py-4 text-left text-white font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/10">
+                            {{range .Records}}
+                            <tr class="hover:bg-white/5 transition">
+                                <td class="px-6 py-4 text-white/90">{{.Date.Format "Jan 02, 2006"}}</td>
+                                <td class="px-6 py-4 text-white/90">{{.StudentFirstName}} {{.StudentLastName}}</td>
+                                <td class="px-6 py-4 text-white/70">{{.ClassName}}</td>
+                                <td class="px-6 py-4">
+                                    {{if eq .Status "present"}}
+                                    <span class="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-medium">Present</span>
+                                    {{else}}
+                                    <span class="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm font-medium">Absent</span>
+                                    {{end}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

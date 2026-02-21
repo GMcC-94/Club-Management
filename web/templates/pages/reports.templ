@@ -1,0 +1,306 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"fmt"
+	"strconv"
+)
+
+templ Reports(user *types.User) {
+	@layout.Base("Reports", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Reports & Analytics", "/dashboard", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						@ReportCard(
+							"Attendance Report",
+							"View attendance statistics, trends, and insights",
+							"/reports/attendance",
+							"clipboard",
+						)
+						@ReportCard(
+							"Financial Report",
+							"Analyze income, expenditure, and financial trends",
+							"/reports/financial",
+							"chart",
+						)
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ ReportCard(title, description, link, icon string) {
+	<a href={ templ.URL(link) } class="glass rounded-2xl p-6 hover:scale-105 transition-transform block">
+		<div class="flex items-start gap-4">
+			<div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+				@components.Icon(icon)
+			</div>
+			<div>
+				<h3 class="text-xl font-bold text-white mb-2">{ title }</h3>
+				<p class="text-white/70">{ description }</p>
+			</div>
+		</div>
+	</a>
+}
+
+templ AttendanceReport(user *types.User, stats *types.AttendanceReportStats, classes []types.Class, startDate, endDate string) {
+	@layout.Base("Attendance Report", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Attendance Report", "/reports", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					<!-- Filters -->
+					<div class="glass rounded-2xl p-4 mb-6">
+						<form method="GET" action="/reports/attendance" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+							<input
+								type="date"
+								name="start_date"
+								value={ startDate }
+								class="px-4 py-2 rounded-lg glass text-white focus:outline-none"
+								placeholder="Start date"
+							/>
+							<input
+								type="date"
+								name="end_date"
+								value={ endDate }
+								class="px-4 py-2 rounded-lg glass text-white focus:outline-none"
+								placeholder="End date"
+							/>
+							<select name="class_id" class="px-4 py-2 rounded-lg glass text-white bg-transparent focus:outline-none">
+								<option value="" class="bg-purple-900">All Classes</option>
+								for _, class := range classes {
+									<option value={ strconv.Itoa(class.ID) } class="bg-purple-900">{ class.Name }</option>
+								}
+							</select>
+							<button type="submit" class="px-4 py-2 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Filter
+							</button>
+						</form>
+					</div>
+					<!-- Summary Cards -->
+					<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+						@StatCard("Total Records", strconv.Itoa(stats.TotalRecords), "")
+						@StatCard("Present", strconv.Itoa(stats.TotalPresent), "success")
+						@StatCard("Absent", strconv.Itoa(stats.TotalAbsent), "danger")
+						@StatCard("Attendance Rate", fmt.Sprintf("%.1f%%", stats.AttendanceRate), "success")
+					</div>
+					<!-- Charts -->
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+						@ChartCard("Top Classes", stats.TopClasses)
+						@ChartCard("Top Students", stats.TopStudents)
+					</div>
+					<!-- Trend Chart -->
+					if len(stats.DailyTrend) > 0 {
+						@TrendChart("Daily Attendance Trend", stats.DailyTrend)
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ FinancialReport(user *types.User, stats *types.FinancialStats, startDate, endDate string) {
+	@layout.Base("Financial Report", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Financial Report", "/reports", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					<!-- Filters -->
+					<div class="glass rounded-2xl p-4 mb-6">
+						<form method="GET" action="/reports/financial" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<input
+								type="date"
+								name="start_date"
+								value={ startDate }
+								class="px-4 py-2 rounded-lg glass text-white focus:outline-none"
+								placeholder="Start date"
+							/>
+							<input
+								type="date"
+								name="end_date"
+								value={ endDate }
+								class="px-4 py-2 rounded-lg glass text-white focus:outline-none"
+								placeholder="End date"
+							/>
+							<button type="submit" class="px-4 py-2 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Filter
+							</button>
+						</form>
+					</div>
+					<!-- Summary Cards -->
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+						@StatCard("Total Income", "£"+formatMoney(stats.TotalIncome), "success")
+						@StatCard("Total Expenditure", "£"+formatMoney(stats.TotalExpenditure), "danger")
+						@StatCard("Net Balance", "£"+formatMoney(stats.NetBalance), getBalanceColor(stats.NetBalance))
+					</div>
+					<!-- Charts -->
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+						@FinancialChartCard("Income by Category", stats.IncomeByCategory, "success")
+						@FinancialChartCard("Expenditure by Category", stats.ExpenditureByCategory, "danger")
+					</div>
+					<!-- Trend Chart -->
+					if len(stats.MonthlyTrend) > 0 {
+						@FinancialTrendChart("Income vs Expenditure Trend", stats.MonthlyTrend)
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ StatCard(title, value, variant string) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-white/70 text-sm mb-2">{ title }</h3>
+		if variant == "success" {
+			<p class="text-3xl font-bold text-green-300">{ value }</p>
+		} else if variant == "danger" {
+			<p class="text-3xl font-bold text-red-300">{ value }</p>
+		} else {
+			<p class="text-3xl font-bold text-white">{ value }</p>
+		}
+	</div>
+}
+
+templ ChartCard(title string, data []types.ChartDataItem) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-xl font-bold text-white mb-4">{ title }</h3>
+		<div class="space-y-3">
+			for _, item := range data {
+				<div class="flex items-center justify-between">
+					<span class="text-white/90">{ item.Label }</span>
+					<div class="flex items-center gap-2">
+						<div class="w-32 h-3 bg-white/20 rounded-full overflow-hidden">
+							<div class="h-full bg-gradient-to-r from-purple-400 to-pink-400" style={ "width: " + getPercentage(item.Value, data) + "%" }></div>
+						</div>
+						<span class="text-white/70 text-sm w-12 text-right">{ strconv.Itoa(item.Value) }</span>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ FinancialChartCard(title string, data []types.ChartDataItem, variant string) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-xl font-bold text-white mb-4">{ title }</h3>
+		<div class="space-y-3">
+			for _, item := range data {
+				<div class="flex items-center justify-between">
+					<span class="text-white/90">{ item.Label }</span>
+					<div class="flex items-center gap-2">
+						<div class="w-32 h-3 bg-white/20 rounded-full overflow-hidden">
+							if variant == "success" {
+								<div class="h-full bg-gradient-to-r from-green-400 to-emerald-400" style={ "width: " + getPercentage(item.Value, data) + "%" }></div>
+							} else {
+								<div class="h-full bg-gradient-to-r from-red-400 to-rose-400" style={ "width: " + getPercentage(item.Value, data) + "%" }></div>
+							}
+						</div>
+						<span class="text-white/70 text-sm w-16 text-right">£{ strconv.Itoa(item.Value) }</span>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ TrendChart(title string, data []types.TrendDataItem) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-xl font-bold text-white mb-4">{ title }</h3>
+		<div class="h-64 flex items-end gap-2">
+			for _, item := range data {
+				<div class="flex-1 flex flex-col items-center gap-2">
+					<div class="w-full bg-gradient-to-t from-purple-400 to-pink-400 rounded-t-lg" style={ "height: " + getTrendHeight(item.Value, data) + "%" }></div>
+					<span class="text-white/60 text-xs">{ item.Date }</span>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ FinancialTrendChart(title string, data []types.FinancialTrendItem) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-xl font-bold text-white mb-4">{ title }</h3>
+		<div class="h-64 flex items-end gap-1">
+			for _, item := range data {
+				<div class="flex-1 flex flex-col items-center gap-1">
+					<div class="w-full flex flex-col items-center">
+						<div class="w-full bg-gradient-to-t from-green-400 to-emerald-400 rounded-t-lg" style={ "height: " + getFinancialHeight(item.Income, data) + "px" }></div>
+						<div class="w-full bg-gradient-to-t from-red-400 to-rose-400 rounded-b-lg" style={ "height: " + getFinancialHeight(item.Expenditure, data) + "px" }></div>
+					</div>
+					<span class="text-white/60 text-xs">{ item.Date }</span>
+				</div>
+			}
+		</div>
+		<div class="flex items-center justify-center gap-6 mt-4">
+			<div class="flex items-center gap-2">
+				<div class="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-400 rounded"></div>
+				<span class="text-white/70 text-sm">Income</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<div class="w-4 h-4 bg-gradient-to-r from-red-400 to-rose-400 rounded"></div>
+				<span class="text-white/70 text-sm">Expenditure</span>
+			</div>
+		</div>
+	</div>
+}
+
+// Helper functions
+func formatMoney(amount float64) string {
+	return fmt.Sprintf("%.2f", amount)
+}
+
+func getBalanceColor(balance float64) string {
+	if balance > 0 {
+		return "success"
+	} else if balance < 0 {
+		return "danger"
+	}
+	return ""
+}
+
+func getPercentage(value int, data []types.ChartDataItem) string {
+	max := 0
+	for _, item := range data {
+		if item.Value > max {
+			max = item.Value
+		}
+	}
+	if max == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%d", value * 100 / max)
+}
+
+func getTrendHeight(value int, data []types.TrendDataItem) string {
+	max := 0
+	for _, item := range data {
+		if item.Value > max {
+			max = item.Value
+		}
+	}
+	if max == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%d", value * 100 / max)
+}
+
+func getFinancialHeight(value float64, data []types.FinancialTrendItem) string {
+	max := 0.0
+	for _, item := range data {
+		if item.Income > max {
+			max = item.Income
+		}
+		if item.Expenditure > max {
+			max = item.Expenditure
+		}
+	}
+	if max == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%d", int(value * 200 / max))
+}

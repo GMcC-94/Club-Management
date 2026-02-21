@@ -1,0 +1,134 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+)
+
+templ Settings(user *types.User, settings *types.Settings) {
+	@layout.Base("Settings", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Settings", "/dashboard", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-4xl mx-auto">
+					<div class="glass rounded-2xl p-6 md:p-8">
+						<div class="mb-6">
+							<h2 class="text-2xl font-bold text-white mb-2">Club Information</h2>
+							<p class="text-white/70">Manage your club's settings and preferences</p>
+						</div>
+						<form method="POST" action="/settings/update" class="space-y-6">
+						@components.CSRFInput()
+							<!-- Club Name -->
+							<div>
+								<label for="club_name" class="block text-white font-medium mb-2">Club Name *</label>
+								<input
+									type="text"
+									id="club_name"
+									name="club_name"
+									value={ settings.ClubName }
+									required
+									class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+									placeholder="e.g., Full Circle Martial Arts"
+								/>
+							</div>
+							<!-- Address -->
+							<div>
+								<label for="address" class="block text-white font-medium mb-2">Address</label>
+								<textarea
+									id="address"
+									name="address"
+									rows="3"
+									class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+									placeholder="Club address"
+								>{ settings.Address }</textarea>
+							</div>
+							<!-- Contact Info -->
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<label for="phone" class="block text-white font-medium mb-2">Phone</label>
+									<input
+										type="tel"
+										id="phone"
+										name="phone"
+										value={ settings.Phone }
+										class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+										placeholder="e.g., +44 123 456 7890"
+									/>
+								</div>
+								<div>
+									<label for="email" class="block text-white font-medium mb-2">Email</label>
+									<input
+										type="email"
+										id="email"
+										name="email"
+										value={ settings.Email }
+										class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+										placeholder="e.g., info@club.com"
+									/>
+								</div>
+							</div>
+							<!-- Website -->
+							<div>
+								<label for="website" class="block text-white font-medium mb-2">Website</label>
+								<input
+									type="url"
+									id="website"
+									name="website"
+									value={ settings.Website }
+									class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+									placeholder="e.g., https://www.club.com"
+								/>
+							</div>
+							<!-- System Settings -->
+							<div class="border-t border-white/20 pt-6 mt-6">
+								<h3 class="text-xl font-bold text-white mb-4">System Settings</h3>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<label for="currency" class="block text-white font-medium mb-2">Currency</label>
+										<select
+											id="currency"
+											name="currency"
+											class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+										>
+											<option value="GBP" selected?={ settings.Currency == "GBP" } class="bg-purple-900">GBP (£)</option>
+											<option value="USD" selected?={ settings.Currency == "USD" } class="bg-purple-900">USD ($)</option>
+											<option value="EUR" selected?={ settings.Currency == "EUR" } class="bg-purple-900">EUR (€)</option>
+										</select>
+									</div>
+									<div>
+										<label for="date_format" class="block text-white font-medium mb-2">Date Format</label>
+										<select
+											id="date_format"
+											name="date_format"
+											class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+										>
+											<option value="02/01/2006" selected?={ settings.DateFormat == "02/01/2006" } class="bg-purple-900">DD/MM/YYYY</option>
+											<option value="01/02/2006" selected?={ settings.DateFormat == "01/02/2006" } class="bg-purple-900">MM/DD/YYYY</option>
+											<option value="2006-01-02" selected?={ settings.DateFormat == "2006-01-02" } class="bg-purple-900">YYYY-MM-DD</option>
+										</select>
+									</div>
+								</div>
+							</div>
+							<!-- Action Buttons -->
+							<div class="flex gap-4 pt-4">
+								<a
+									href="/dashboard"
+									class="flex-1 py-3 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition text-center"
+								>
+									Cancel
+								</a>
+								<button
+									type="submit"
+									class="flex-1 py-3 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+								>
+									Save Settings
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}

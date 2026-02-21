@@ -1,0 +1,381 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"strconv"
+	"time"
+)
+
+templ TakeAttendance(user *types.User, classes []types.Class, date string) {
+	@layout.Base("Take Attendance", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Take Attendance", "/dashboard", false, "")
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-4xl mx-auto">
+					if len(classes) == 0 {
+						@components.EmptyState(
+							"clipboard",
+							"No Classes Today",
+							"There are no scheduled classes for today.",
+						) {
+							<a href="/dashboard" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Back to Dashboard
+							</a>
+						}
+					} else {
+						<!-- Select Class -->
+						<div class="glass rounded-2xl p-6 mb-6" id="class-selector">
+							<h3 class="text-xl font-bold text-white mb-4">Select Class</h3>
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								for _, class := range classes {
+									@ClassButton(class, date)
+								}
+							</div>
+						</div>
+						<!-- Attendance Form -->
+						<div id="attendance-form" class="hidden">
+							<form method="POST" action="/attendance/submit" id="attendanceForm">
+								@components.CSRFInput()
+								<input type="hidden" name="class_id" id="selected_class_id"/>
+								<input type="hidden" name="date" value={ date }/>
+								<!-- Hidden inputs for off-schedule students -->
+								<div id="off-schedule-inputs"></div>
+								<div class="glass rounded-2xl p-6 mb-6">
+									<div class="flex items-center justify-between mb-4">
+										<h3 class="text-xl font-bold text-white">Students</h3>
+										<span class="text-white/70 text-sm" id="attendance-count">0 / 0</span>
+									</div>
+									<div id="students-list">
+										<div class="text-white/70 text-center py-8">Loading students...</div>
+									</div>
+								</div>
+								<div class="flex gap-4">
+									<button
+										type="button"
+										onclick="cancelAttendance()"
+										class="flex-1 py-4 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition"
+									>
+										Cancel
+									</button>
+									<button
+										type="submit"
+										class="flex-1 py-4 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+									>
+										Submit Attendance
+									</button>
+								</div>
+							</form>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+		<script>
+			let currentClassId = null;
+			let offScheduleStudents = new Set();
+
+			function selectClass(classId) {
+				currentClassId = classId;
+				document.getElementById('selected_class_id').value = classId;
+				
+				// Update UI
+				document.getElementById('class-selector').classList.add('hidden');
+				document.getElementById('attendance-form').classList.remove('hidden');
+				
+				// Highlight selected class
+				document.querySelectorAll('.class-btn').forEach(btn => {
+					btn.classList.remove('border-white', 'bg-white/30');
+				});
+				document.querySelector(`[data-class-id="${classId}"]`).classList.add('border-white', 'bg-white/30');
+			}
+
+			function cancelAttendance() {
+				document.getElementById('class-selector').classList.remove('hidden');
+				document.getElementById('attendance-form').classList.add('hidden');
+				document.querySelectorAll('.class-btn').forEach(btn => {
+					btn.classList.remove('border-white', 'bg-white/30');
+				});
+				currentClassId = null;
+				offScheduleStudents.clear();
+				document.getElementById('off-schedule-inputs').innerHTML = '';
+			}
+
+			function toggleAttendance(studentId) {
+				const checkbox = document.getElementById('student_' + studentId);
+				const row = document.getElementById('row_' + studentId);
+				
+				if (checkbox.checked) {
+					row.classList.add('bg-green-500/20', 'border-green-400/50');
+					row.classList.remove('bg-white/10', 'border-white/20');
+				} else {
+					row.classList.remove('bg-green-500/20', 'border-green-400/50');
+					row.classList.add('bg-white/10', 'border-white/20');
+				}
+				
+				updateAttendanceCount();
+			}
+
+			function updateAttendanceCount() {
+				const total = document.querySelectorAll('input[type="checkbox"][name^="student_"]').length;
+				const present = document.querySelectorAll('input[type="checkbox"][name^="student_"]:checked').length;
+				document.getElementById('attendance-count').textContent = present + ' / ' + total;
+			}
+
+			function addOffScheduleStudent(studentId, studentName, beltLevel) {
+				if (offScheduleStudents.has(studentId)) {
+					return; // Already added
+				}
+				
+				offScheduleStudents.add(studentId);
+				
+				// Add to hidden inputs
+				const input = document.createElement('input');
+				input.type = 'hidden';
+				input.name = 'off_schedule_student';
+				input.value = studentId;
+				document.getElementById('off-schedule-inputs').appendChild(input);
+				
+				// Add to student list
+				const container = document.getElementById('students-list-container') || document.getElementById('students-list');
+				const row = document.createElement('div');
+				row.innerHTML = `
+					<label class="student-row flex items-center justify-between p-4 rounded-xl bg-white/10 border-2 border-white/20 cursor-pointer transition hover:bg-white/15" id="row_${studentId}">
+						<div class="flex items-center gap-4">
+							<input type="checkbox" name="student_${studentId}" id="student_${studentId}" value="present" onchange="toggleAttendance(${studentId})" class="w-6 h-6 rounded-lg"/>
+							<div>
+								<div class="text-white font-semibold">${studentName}</div>
+								<div class="text-white/70 text-sm">${beltLevel} <span class="text-yellow-300 ml-2">(Off Schedule)</span></div>
+							</div>
+						</div>
+					</label>
+				`;
+				container.appendChild(row.firstElementChild);
+				
+				// Close search
+				document.getElementById('search-results').innerHTML = '';
+				
+				updateAttendanceCount();
+			}
+
+			function filterStudents(query) {
+				const items = document.querySelectorAll('.search-student-item');
+				const lowerQuery = query.toLowerCase();
+				
+				items.forEach(item => {
+					const name = item.getAttribute('data-student-name').toLowerCase();
+					if (name.includes(lowerQuery)) {
+						item.style.display = 'block';
+					} else {
+						item.style.display = 'none';
+					}
+				});
+			}
+
+			// Initialize count after HTMX loads students
+			document.body.addEventListener('htmx:afterSwap', function(evt) {
+				if (evt.detail.target.id === 'students-list') {
+					updateAttendanceCount();
+				}
+			});
+		</script>
+	}
+}
+
+templ ClassButton(class types.Class, date string) {
+	<button
+		type="button"
+		hx-get={ "/attendance/students?class_id=" + strconv.Itoa(class.ID) + "&date=" + date }
+		hx-target="#students-list"
+		hx-swap="innerHTML"
+		onclick={ templ.ComponentScript{Call: "selectClass(" + strconv.Itoa(class.ID) + ")"} }
+		class="class-btn text-left p-4 rounded-xl bg-white/10 border-2 border-white/20 hover:border-white/50 hover:bg-white/20 transition cursor-pointer"
+		data-class-id={ strconv.Itoa(class.ID) }
+	>
+		<div class="font-semibold text-white text-lg">{ class.Name }</div>
+		<div class="text-white/70 text-sm">{ class.StartTime.Format("15:04") }</div>
+	</button>
+}
+
+templ AttendanceHistory(user *types.User, records []types.AttendanceRecord) {
+	@layout.Base("Attendance History", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Attendance History", "/dashboard", false, "")
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					if len(records) == 0 {
+						@components.EmptyState(
+							"clipboard",
+							"No Attendance Records",
+							"Start taking attendance to see records here.",
+						) {
+							<a href="/attendance/take" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Take Attendance
+							</a>
+						}
+					} else {
+						@GroupedAttendanceDisplay(records)
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ GroupedAttendanceDisplay(records []types.AttendanceRecord) {
+	<div class="space-y-6">
+		for i, record := range records {
+			if i == 0 || !isSameDate(record.Date, records[i-1].Date) {
+				@renderDateHeader(record.Date)
+			}
+			if i == 0 || !isSameDate(record.Date, records[i-1].Date) || record.ClassID != records[i-1].ClassID {
+				@renderClassHeader(record)
+			}
+			@renderStudentRow(record)
+		}
+	</div>
+}
+
+templ renderDateHeader(date time.Time) {
+	<div class="glass rounded-2xl p-4 mb-4">
+		<h3 class="text-xl font-bold text-white">{ date.Format("Monday, 02 January 2006") }</h3>
+	</div>
+}
+
+templ renderClassHeader(record types.AttendanceRecord) {
+	<div class="glass rounded-xl p-3 mb-2">
+		<div class="flex items-center justify-between">
+			<h4 class="text-lg font-semibold text-white/90">{ record.ClassName }</h4>
+			<a
+				href={ templ.URL("/attendance/edit?date=" + record.Date.Format("2006-01-02") + "&class_id=" + strconv.Itoa(record.ClassID)) }
+				class="text-sm text-white/70 hover:text-white transition px-3 py-1 rounded-lg hover:bg-white/10"
+			>
+				Edit
+			</a>
+		</div>
+	</div>
+}
+
+templ renderStudentRow(record types.AttendanceRecord) {
+	<div class="flex items-center justify-between p-3 rounded-lg bg-white/5 ml-4 mb-2">
+		<span class="text-white/90 text-sm">
+			{ record.StudentFirstName } { record.StudentLastName }
+			if record.OffSchedule {
+				<span class="text-yellow-300 text-xs ml-2">(Off Schedule)</span>
+			}
+		</span>
+		if record.Status == "present" {
+			<span class="text-green-300 text-sm">✓ Present</span>
+		} else {
+			<span class="text-red-300 text-sm">✗ Absent</span>
+		}
+	</div>
+}
+
+func isSameDate(d1, d2 time.Time) bool {
+	return d1.Year() == d2.Year() && d1.Month() == d2.Month() && d1.Day() == d2.Day()
+}
+
+templ AttendanceEdit(user *types.User, class *types.Class, date time.Time, records []types.AttendanceEditRecord) {
+	@layout.Base("Edit Attendance", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Edit Attendance", "/attendance", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-4xl mx-auto">
+					<div class="glass rounded-2xl p-6 md:p-8">
+						<div class="mb-6">
+							<h2 class="text-2xl font-bold text-white mb-2">{ class.Name }</h2>
+							<p class="text-white/70">{ date.Format("Monday, 02 January 2006") }</p>
+						</div>
+						<form method="POST" action="/attendance/update" id="editAttendanceForm">
+						@components.CSRFInput()
+							<input type="hidden" name="class_id" value={ strconv.Itoa(class.ID) }/>
+							<input type="hidden" name="date" value={ date.Format("2006-01-02") }/>
+							<div class="glass rounded-2xl p-6 mb-6">
+								<div class="flex items-center justify-between mb-4">
+									<h3 class="text-xl font-bold text-white">Students</h3>
+									<span class="text-white/70 text-sm" id="attendance-count">0 / 0</span>
+								</div>
+								<div class="space-y-3">
+									for _, record := range records {
+										@AttendanceEditRow(record)
+									}
+								</div>
+							</div>
+							<div class="flex gap-4">
+								<a
+									href="/attendance"
+									class="flex-1 py-3 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition text-center"
+								>
+									Cancel
+								</a>
+								<button
+									type="submit"
+									class="flex-1 py-3 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+								>
+									Update Attendance
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script>
+			function toggleAttendance(studentId) {
+				const checkbox = document.getElementById('student_' + studentId);
+				const row = document.getElementById('row_' + studentId);
+				
+				if (checkbox.checked) {
+					row.classList.add('bg-green-500/20', 'border-green-400/50');
+					row.classList.remove('bg-white/10', 'border-white/20');
+				} else {
+					row.classList.remove('bg-green-500/20', 'border-green-400/50');
+					row.classList.add('bg-white/10', 'border-white/20');
+				}
+				
+				updateAttendanceCount();
+			}
+
+			function updateAttendanceCount() {
+				const total = document.querySelectorAll('input[type="checkbox"][name^="student_"]').length;
+				const present = document.querySelectorAll('input[type="checkbox"][name^="student_"]:checked').length;
+				document.getElementById('attendance-count').textContent = present + ' / ' + total;
+			}
+
+			// Initialize count on page load
+			window.addEventListener('DOMContentLoaded', updateAttendanceCount);
+		</script>
+	}
+}
+
+templ AttendanceEditRow(record types.AttendanceEditRecord) {
+	<label
+		class="flex items-center justify-between p-4 rounded-xl bg-white/10 border-2 border-white/20 cursor-pointer transition hover:bg-white/15"
+		id={ "row_" + strconv.Itoa(record.StudentID) }
+	>
+		<div class="flex items-center gap-4">
+			<input
+				type="checkbox"
+				name={ "student_" + strconv.Itoa(record.StudentID) }
+				id={ "student_" + strconv.Itoa(record.StudentID) }
+				value="present"
+				checked?={ record.Status == "present" }
+				onchange={ templ.ComponentScript{Call: "toggleAttendance(" + strconv.Itoa(record.StudentID) + ")"} }
+				class="w-6 h-6 rounded-lg"
+			/>
+			<div>
+				<div class="text-white font-semibold">{ record.StudentFirstName } { record.StudentLastName }</div>
+				<div class="text-white/70 text-sm">
+					{ record.BeltLevel }
+					if record.OffSchedule {
+						<span class="text-yellow-300 ml-2">(Off Schedule)</span>
+					}
+				</div>
+			</div>
+		</div>
+	</label>
+}

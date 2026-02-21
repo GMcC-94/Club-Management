@@ -1,0 +1,222 @@
+package components
+
+import "club-management/internal/types"
+
+templ Navigation(user *types.User) {
+	<!-- Top Navigation Bar -->
+	<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/20">
+		<div class="container mx-auto px-4">
+			<div class="flex items-center justify-between h-16">
+				<!-- Left: Hamburger Menu (Mobile/Tablet) + Logo -->
+				<div class="flex items-center gap-4">
+					<!-- Hamburger Button (Mobile/Tablet only) -->
+					<button
+						onclick="toggleMobileMenu()"
+						class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 transition"
+						aria-label="Open menu"
+					>
+						<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+						</svg>
+					</button>
+					<!-- Logo -->
+					<a href="/dashboard" class="flex items-center gap-2">
+						<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+							<span class="text-white font-bold text-sm">KC</span>
+						</div>
+						<span class="text-white font-bold text-lg hidden sm:block">Club Manager</span>
+					</a>
+				</div>
+				<!-- Center: Desktop Navigation -->
+				<div class="hidden md:flex space-x-2">
+					<a href="/dashboard" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Dashboard</a>
+					<a href="/attendance/take" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Attendance</a>
+					if user.Role == "admin" || user.Role == "treasurer" {
+						<a href="/transactions" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Finances</a>
+					}
+					if user.Role == "admin" {
+						<a href="/students" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Students</a>
+						<a href="/classes" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Classes</a>
+						<a href="/reports" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Reports</a>
+						<a href="/users" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Users</a>
+						<a href="/settings" class="text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition">Settings</a>
+					}
+				</div>
+				<!-- Right: User Menu -->
+				<div class="flex items-center gap-2">
+					<span class="text-white/70 text-sm hidden sm:block">{ user.Username }</span>
+					if user.Role == "admin" {
+						<span class="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs font-medium hidden sm:block">Admin</span>
+					}
+					if user.Role == "treasurer" {
+						<span class="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-medium hidden sm:block">Treasurer</span>
+					}
+					<a
+						href="/logout"
+						class="text-white/70 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition text-sm"
+					>
+						Logout
+					</a>
+				</div>
+			</div>
+		</div>
+	</nav>
+	<!-- Mobile/Tablet Drawer Menu -->
+	<div
+		id="mobile-menu-overlay"
+		class="fixed inset-0 bg-black/50 z-40 md:hidden hidden"
+		onclick="toggleMobileMenu()"
+	></div>
+	<div
+		id="mobile-menu"
+		class="fixed top-0 left-0 bottom-0 w-72 glass border-r border-white/20 z-50 transform -translate-x-full transition-transform duration-300 md:hidden"
+	>
+		<div class="flex flex-col h-full">
+			<!-- Menu Header -->
+			<div class="flex items-center justify-between p-4 border-b border-white/20">
+				<div class="flex items-center gap-2">
+					<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+						<span class="text-white font-bold">KC</span>
+					</div>
+					<div>
+						<p class="text-white font-semibold">{ user.Username }</p>
+						<p class="text-white/60 text-xs">{ user.Role }</p>
+					</div>
+				</div>
+				<button
+					onclick="toggleMobileMenu()"
+					class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition"
+				>
+					<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+				</button>
+			</div>
+			<!-- Menu Items -->
+			<div class="flex-1 overflow-y-auto p-4 space-y-1">
+				<a href="/dashboard" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+					@Icon("home")
+					<span>Dashboard</span>
+				</a>
+				<a href="/attendance/take" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+					@Icon("clipboard")
+					<span>Take Attendance</span>
+				</a>
+				<a href="/attendance" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+					@Icon("clipboard")
+					<span>Attendance History</span>
+				</a>
+				if user.Role == "admin" || user.Role == "treasurer" {
+					<div class="border-t border-white/20 my-2 pt-2">
+						<p class="px-4 py-2 text-white/50 text-xs font-semibold uppercase tracking-wider">Financial</p>
+					</div>
+					<a href="/transactions" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("chart")
+						<span>Financial Tracking</span>
+					</a>
+					<a href="/reports/financial" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("chart")
+						<span>Financial Reports</span>
+					</a>
+				}
+				if user.Role == "admin" {
+					<div class="border-t border-white/20 my-2 pt-2">
+						<p class="px-4 py-2 text-white/50 text-xs font-semibold uppercase tracking-wider">Management</p>
+					</div>
+					<a href="/students" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("users")
+						<span>Students</span>
+					</a>
+					<a href="/classes" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("clipboard")
+						<span>Classes</span>
+					</a>
+					<div class="border-t border-white/20 my-2 pt-2">
+						<p class="px-4 py-2 text-white/50 text-xs font-semibold uppercase tracking-wider">Analytics</p>
+					</div>
+					<a href="/reports" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("chart")
+						<span>Reports & Analytics</span>
+					</a>
+					<div class="border-t border-white/20 my-2 pt-2">
+						<p class="px-4 py-2 text-white/50 text-xs font-semibold uppercase tracking-wider">System</p>
+					</div>
+					<a href="/users" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("users")
+						<span>User Management</span>
+					</a>
+					<a href="/settings" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition" onclick="toggleMobileMenu()">
+						@Icon("chart")
+						<span>Settings</span>
+					</a>
+				}
+			</div>
+			<!-- Menu Footer -->
+			<div class="border-t border-white/20 p-4">
+				<a
+					href="/logout"
+					class="flex items-center gap-3 px-4 py-3 rounded-lg text-red-300 hover:bg-red-500/10 transition"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+					</svg>
+					<span>Logout</span>
+				</a>
+			</div>
+		</div>
+	</div>
+	<!-- JavaScript for mobile menu -->
+	<script>
+		function toggleMobileMenu() {
+			const menu = document.getElementById('mobile-menu');
+			const overlay = document.getElementById('mobile-menu-overlay');
+			
+			if (menu.classList.contains('-translate-x-full')) {
+				// Open menu
+				menu.classList.remove('-translate-x-full');
+				overlay.classList.remove('hidden');
+				document.body.style.overflow = 'hidden';
+			} else {
+				// Close menu
+				menu.classList.add('-translate-x-full');
+				overlay.classList.add('hidden');
+				document.body.style.overflow = '';
+			}
+		}
+		
+		// Close menu on escape key
+		document.addEventListener('keydown', function(e) {
+			if (e.key === 'Escape') {
+				const menu = document.getElementById('mobile-menu');
+				if (!menu.classList.contains('-translate-x-full')) {
+					toggleMobileMenu();
+				}
+			}
+		});
+	</script>
+}
+
+templ Icon(name string) {
+	switch name {
+		case "home":
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+			</svg>
+		case "clipboard":
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+			</svg>
+		case "users":
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+			</svg>
+		case "chart":
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+			</svg>
+		case "back":
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+			</svg>
+	}
+}

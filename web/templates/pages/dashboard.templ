@@ -1,0 +1,76 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+)
+
+templ Dashboard(user *types.User) {
+	@layout.Base("Dashboard", user) {
+		<div class="min-h-screen">
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					<div class="mb-8">
+						<h2 class="text-3xl md:text-4xl font-bold text-white mb-2">Welcome back, { user.Username }!</h2>
+						<p class="text-white/80">Here's what's happening today</p>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+						<!-- Quick Actions -->
+						@components.QuickActionCard(
+							"Take Attendance",
+							"Record attendance for today's classes",
+							"/attendance/take",
+							"clipboard",
+						)
+						@components.QuickActionCard(
+							"Attendance History",
+							"View and edit past attendance records",
+							"/attendance",
+							"clipboard",
+						)
+						if user.Role == "admin" {
+							@components.QuickActionCard(
+								"Manage Students",
+								"Add, edit, or view student profiles",
+								"/students",
+								"users",
+							)
+							@components.QuickActionCard(
+								"Manage Classes",
+								"Schedule and manage classes",
+								"/classes",
+								"clipboard",
+							)
+							@components.QuickActionCard(
+								"Financial Tracking",
+								"Record income and expenses",
+								"/transactions",
+								"chart",
+							)
+							@components.QuickActionCard(
+								"Reports & Analytics",
+								"View attendance and financial reports",
+								"/reports",
+								"chart",
+							)
+							@components.QuickActionCard(
+								"User Management",
+								"Manage system users and permissions",
+								"/users",
+								"users",
+							)
+							@components.QuickActionCard(
+								"Settings",
+								"Configure club information and preferences",
+								"/settings",
+								"chart",
+							)
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}

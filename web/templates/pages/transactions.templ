@@ -1,0 +1,176 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"fmt"
+	"strconv"
+)
+
+templ Transactions(user *types.User, transactions []types.Transaction, categories []types.Category) {
+	@layout.Base("Transactions", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Financial Tracking", "/dashboard", true, "/transactions/new")
+			<!-- Main Content -->
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-6xl mx-auto">
+					<!-- Summary Cards -->
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+						@SummaryCard("Total Income", calculateIncome(transactions), "success")
+						@SummaryCard("Total Expenditure", calculateExpenditure(transactions), "danger")
+						@SummaryCard("Balance", calculateBalance(transactions), getBalanceVariant(transactions))
+					</div>
+					<!-- Filters -->
+					<div class="glass rounded-2xl p-4 mb-6">
+						<form method="GET" action="/transactions" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+							<select name="type" class="px-4 py-2 rounded-lg glass text-white bg-transparent focus:outline-none">
+								<option value="" class="bg-purple-900">All Types</option>
+								<option value="income" class="bg-purple-900">Income</option>
+								<option value="expenditure" class="bg-purple-900">Expenditure</option>
+							</select>
+							<select name="category" class="px-4 py-2 rounded-lg glass text-white bg-transparent focus:outline-none">
+								<option value="" class="bg-purple-900">All Categories</option>
+								for _, cat := range categories {
+									<option value={ strconv.Itoa(cat.ID) } class="bg-purple-900">{ cat.Name }</option>
+								}
+							</select>
+							<input type="date" name="from" class="px-4 py-2 rounded-lg glass text-white focus:outline-none"/>
+							<button type="submit" class="px-4 py-2 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Filter
+							</button>
+						</form>
+					</div>
+					<!-- Transactions List -->
+					if len(transactions) == 0 {
+						@components.EmptyState(
+							"chart",
+							"No Transactions Yet",
+							"Start tracking your club's income and expenses.",
+						) {
+							<a href="/transactions/new" class="inline-block mt-6 px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition">
+								Add Transaction
+							</a>
+						}
+					} else {
+						<div class="glass rounded-2xl overflow-hidden">
+							<div class="overflow-x-auto">
+								<table class="w-full">
+									<thead class="bg-white/10">
+										<tr>
+											<th class="px-6 py-4 text-left text-white font-semibold">Date</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Description</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Category</th>
+											<th class="px-6 py-4 text-left text-white font-semibold">Type</th>
+											<th class="px-6 py-4 text-right text-white font-semibold">Amount</th>
+											<th class="px-6 py-4 text-center text-white font-semibold">Actions</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-white/10">
+										for _, txn := range transactions {
+											@TransactionRow(txn)
+										}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ SummaryCard(title, amount, variant string) {
+	<div class="glass rounded-2xl p-6">
+		<h3 class="text-white/70 text-sm mb-2">{ title }</h3>
+		if variant == "success" {
+			<p class="text-3xl font-bold text-green-300">{ amount }</p>
+		} else if variant == "danger" {
+			<p class="text-3xl font-bold text-red-300">{ amount }</p>
+		} else {
+			<p class="text-3xl font-bold text-white">{ amount }</p>
+		}
+	</div>
+}
+
+templ TransactionRow(txn types.Transaction) {
+	<tr class="hover:bg-white/5 transition">
+		<td class="px-6 py-4 text-white/90">{ txn.Date.Format("02 Jan 2006") }</td>
+		<td class="px-6 py-4 text-white/90">{ txn.Description }</td>
+		<td class="px-6 py-4 text-white/70">{ txn.CategoryName }</td>
+		<td class="px-6 py-4">
+			if txn.Type == "income" {
+				@components.Badge("Income", "success")
+			} else {
+				@components.Badge("Expenditure", "danger")
+			}
+		</td>
+		<td class="px-6 py-4 text-right">
+			if txn.Type == "income" {
+				<span class="text-green-300 font-semibold">+£{ formatAmount(txn.Amount) }</span>
+			} else {
+				<span class="text-red-300 font-semibold">-£{ formatAmount(txn.Amount) }</span>
+			}
+		</td>
+		<td class="px-6 py-4 text-center">
+			<a href={ templ.URL("/transactions/edit?id=" + strconv.Itoa(txn.ID)) } class="text-white/70 hover:text-white transition">
+				Edit
+			</a>
+		</td>
+	</tr>
+}
+
+// Helper functions
+func calculateIncome(transactions []types.Transaction) string {
+	var total float64
+	for _, t := range transactions {
+		if t.Type == "income" {
+			total += t.Amount
+		}
+	}
+	return "£" + formatAmount(total)
+}
+
+func calculateExpenditure(transactions []types.Transaction) string {
+	var total float64
+	for _, t := range transactions {
+		if t.Type == "expenditure" {
+			total += t.Amount
+		}
+	}
+	return "£" + formatAmount(total)
+}
+
+func calculateBalance(transactions []types.Transaction) string {
+	var balance float64
+	for _, t := range transactions {
+		if t.Type == "income" {
+			balance += t.Amount
+		} else {
+			balance -= t.Amount
+		}
+	}
+	return "£" + formatAmount(balance)
+}
+
+func getBalanceVariant(transactions []types.Transaction) string {
+	var balance float64
+	for _, t := range transactions {
+		if t.Type == "income" {
+			balance += t.Amount
+		} else {
+			balance -= t.Amount
+		}
+	}
+	if balance > 0 {
+		return "success"
+	} else if balance < 0 {
+		return "danger"
+	}
+	return ""
+}
+
+func formatAmount(amount float64) string {
+	return fmt.Sprintf("%.2f", amount)
+}

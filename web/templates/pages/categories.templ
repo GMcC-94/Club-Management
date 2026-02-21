@@ -1,0 +1,72 @@
+package pages
+
+import (
+	"club-management/internal/types"
+	"club-management/web/templates/layout"
+	"club-management/web/templates/components"
+	"strconv"
+)
+
+templ Categories(user *types.User, categories []types.Category) {
+	@layout.Base("Categories", user) {
+		<div class="min-h-screen">
+			@components.PageHeader("Manage Categories", "/transactions", false, "")
+			<div class="content-wrapper container mx-auto px-4 pt-6 pb-8">
+				<div class="max-w-4xl mx-auto">
+					<!-- Add New Category -->
+					<div class="glass rounded-2xl p-6 mb-6">
+						<h3 class="text-xl font-bold text-white mb-4">Add New Category</h3>
+						<form method="POST" action="/categories/create" class="flex gap-4">
+						@components.CSRFInput()
+							<input
+								type="text"
+								name="name"
+								required
+								placeholder="e.g., Training Equipment"
+								class="flex-1 px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+							/>
+							<button
+								type="submit"
+								class="px-6 py-3 bg-white text-purple-700 rounded-lg font-semibold hover:shadow-lg transition"
+							>
+								Add Category
+							</button>
+						</form>
+					</div>
+					<!-- Existing Categories -->
+					<div class="glass rounded-2xl p-6">
+						<h3 class="text-xl font-bold text-white mb-4">Existing Categories</h3>
+						if len(categories) == 0 {
+							<p class="text-white/70 text-center py-8">No categories yet. Add your first category above.</p>
+						} else {
+							<div class="space-y-3">
+								for _, cat := range categories {
+									@CategoryItem(cat)
+								}
+							</div>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ CategoryItem(category types.Category) {
+	<div class="flex items-center justify-between p-4 rounded-lg bg-white/10 hover:bg-white/15 transition">
+		<span class="text-white font-medium">{ category.Name }</span>
+		<button
+			onclick={ templ.ComponentScript{Call: "confirmDeleteCategory(" + strconv.Itoa(category.ID) + ", '" + category.Name + "')"} }
+			class="text-red-300 hover:text-red-200 text-sm transition"
+		>
+			Delete
+		</button>
+	</div>
+	<script>
+		function confirmDeleteCategory(id, name) {
+			if (confirm('Are you sure you want to delete the category "' + name + '"? Transactions using this category will have it removed.')) {
+				window.location.href = '/categories/delete?id=' + id;
+			}
+		}
+	</script>
+}

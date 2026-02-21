@@ -1,0 +1,255 @@
+package components
+
+import (
+	"club-management/internal/types"
+	"strconv"
+	"strings"
+)
+
+templ StudentForm(student *types.Student, classes []types.Class, isEdit bool) {
+	<form method="POST" action={ templ.URL(formAction(isEdit, student)) } class="space-y-6">
+		@CSRFInput()
+		<!-- Name Fields -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<div>
+				<label for="first_name" class="block text-white font-medium mb-2">First Name *</label>
+				<input
+					type="text"
+					id="first_name"
+					name="first_name"
+					value={ getFirstName(student) }
+					required
+					class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+					placeholder="John"
+				/>
+			</div>
+			<div>
+				<label for="last_name" class="block text-white font-medium mb-2">Last Name *</label>
+				<input
+					type="text"
+					id="last_name"
+					name="last_name"
+					value={ getLastName(student) }
+					required
+					class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+					placeholder="Smith"
+				/>
+			</div>
+		</div>
+		<!-- Age & Weight -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<div>
+				<label for="age" class="block text-white font-medium mb-2">Age</label>
+				<input
+					type="number"
+					id="age"
+					name="age"
+					value={ getAge(student) }
+					min="5"
+					max="100"
+					class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+					placeholder="14"
+				/>
+			</div>
+			<div>
+				<label for="weight_range" class="block text-white font-medium mb-2">Weight Range</label>
+				<input
+					type="text"
+					id="weight_range"
+					name="weight_range"
+					value={ getWeightRange(student) }
+					class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+					placeholder="50-55kg"
+				/>
+				<p class="text-white/60 text-sm mt-1">Format: 50-55kg</p>
+			</div>
+		</div>
+		<!-- Belt Level & Experience -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<div>
+				<label for="belt_level" class="block text-white font-medium mb-2">Belt Level *</label>
+				<select
+					id="belt_level"
+					name="belt_level"
+					required
+					class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+				>
+					<option value="" class="bg-purple-900">Select belt...</option>
+					@BeltOption("Red", getBeltLevel(student))
+					@BeltOption("White", getBeltLevel(student))
+					@BeltOption("Yellow", getBeltLevel(student))
+					@BeltOption("Orange", getBeltLevel(student))
+					@BeltOption("Green", getBeltLevel(student))
+					@BeltOption("Blue", getBeltLevel(student))
+					@BeltOption("Purple", getBeltLevel(student))
+					@BeltOption("Brown", getBeltLevel(student))
+					@BeltOption("Brown w/ stripe", getBeltLevel(student))
+					@BeltOption("Black", getBeltLevel(student))
+				</select>
+			</div>
+			<div>
+				<label for="fight_experience" class="block text-white font-medium mb-2">Fight Experience</label>
+				<select
+					id="fight_experience"
+					name="fight_experience"
+					class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+				>
+					<option value="" class="bg-purple-900">Select experience...</option>
+					@ExperienceOption("novice", getFightExperience(student))
+					@ExperienceOption("intermediate", getFightExperience(student))
+					@ExperienceOption("advanced", getFightExperience(student))
+				</select>
+			</div>
+		</div>
+		<!-- Status -->
+		<div>
+			<label for="status" class="block text-white font-medium mb-2">Status *</label>
+			<select
+				id="status"
+				name="status"
+				required
+				class="w-full px-4 py-3 rounded-lg glass text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-white/50"
+			>
+				@StatusOption("active", getStatus(student))
+				@StatusOption("inactive", getStatus(student))
+			</select>
+			<p class="text-white/60 text-sm mt-1">Inactive students won't appear in attendance lists</p>
+		</div>
+		<!-- Classes -->
+		<div>
+			<label class="block text-white font-medium mb-3">Scheduled Classes</label>
+			<div class="space-y-2">
+				for _, class := range classes {
+					<label class="flex items-center p-3 rounded-lg bg-white/10 hover:bg-white/15 cursor-pointer transition">
+						<input
+							type="checkbox"
+							name="classes"
+							value={ strconv.Itoa(class.ID) }
+							checked?={ isClassSelected(student, class.ID) }
+							class="w-5 h-5 rounded"
+						/>
+						<span class="ml-3 text-white">
+							{ class.Name } <span class="text-white/70 text-sm">({ getDayName(class.DayOfWeek) } { class.StartTime.Format("15:04") })</span>
+						</span>
+					</label>
+				}
+			</div>
+			<p class="text-white/60 text-sm mt-2">Select which classes this student regularly attends</p>
+		</div>
+		<!-- Action Buttons -->
+		<div class="flex gap-4 pt-4">
+			<a
+				href="/students"
+				class="flex-1 py-3 px-6 bg-white/20 text-white rounded-xl font-semibold hover:bg-white/30 transition text-center"
+			>
+				Cancel
+			</a>
+			<button
+				type="submit"
+				class="flex-1 py-3 px-6 bg-white text-purple-700 rounded-xl font-semibold hover:shadow-lg transition transform hover:-translate-y-1"
+			>
+				if isEdit {
+					Update Student
+				} else {
+					Add Student
+				}
+			</button>
+		</div>
+	</form>
+}
+
+templ BeltOption(value, selected string) {
+	<option value={ value } selected?={ value == selected } class="bg-purple-900">{ value }</option>
+}
+
+templ ExperienceOption(value, selected string) {
+	<option value={ value } selected?={ value == selected } class="bg-purple-900">{ capitalize(value) }</option>
+}
+
+templ StatusOption(value, selected string) {
+	<option value={ value } selected?={ value == selected } class="bg-purple-900">{ capitalize(value) }</option>
+}
+
+// Helper functions
+func formAction(isEdit bool, student *types.Student) string {
+	if isEdit && student != nil {
+		return "/students/update?id=" + strconv.Itoa(student.ID)
+	}
+	return "/students/create"
+}
+
+func getFirstName(student *types.Student) string {
+	if student != nil {
+		return student.FirstName
+	}
+	return ""
+}
+
+func getLastName(student *types.Student) string {
+	if student != nil {
+		return student.LastName
+	}
+	return ""
+}
+
+func getAge(student *types.Student) string {
+	if student != nil && student.Age.Valid {
+		return strconv.Itoa(int(student.Age.Int32))
+	}
+	return ""
+}
+
+func getWeightRange(student *types.Student) string {
+	if student != nil && student.WeightRange.Valid {
+		return student.WeightRange.String
+	}
+	return ""
+}
+
+func getBeltLevel(student *types.Student) string {
+	if student != nil {
+		return student.BeltLevel
+	}
+	return ""
+}
+
+func getFightExperience(student *types.Student) string {
+	if student != nil && student.FightExperience.Valid {
+		return student.FightExperience.String
+	}
+	return ""
+}
+
+func getStatus(student *types.Student) string {
+	if student != nil {
+		return student.Status
+	}
+	return "active"
+}
+
+func isClassSelected(student *types.Student, classID int) bool {
+	if student == nil || student.ClassIDs == nil {
+		return false
+	}
+	for _, id := range student.ClassIDs {
+		if id == classID {
+			return true
+		}
+	}
+	return false
+}
+
+func getDayName(day int) string {
+	days := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+	if day >= 0 && day < len(days) {
+		return days[day]
+	}
+	return ""
+}
+
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
