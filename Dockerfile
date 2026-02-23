@@ -1,5 +1,5 @@
 # Build stage
-FROM --platform=linux/arm64 golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -23,12 +23,12 @@ RUN /go/bin/templ generate
 
 RUN go mod tidy
 
-# Build binaries for ARM64
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -o main ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -o setup ./cmd/setup
+# Build binaries
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o setup ./cmd/setup
 
 # Final stage
-FROM --platform=linux/arm64 alpine:latest
+FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata
 
