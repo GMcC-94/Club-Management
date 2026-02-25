@@ -116,35 +116,25 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := database.DB.Begin()
-	if err != nil {
-		logger.Error("failed to begin transaction", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec("DELETE FROM attendance_records WHERE class_id = $1 AND date = $2", classID, date)
-	if err != nil {
-		logger.Error("failed to delete existing attendance", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+	// Build present map
+	presentMap := make(map[int]bool)
+	for _, studentIDStr := range presentStudents {
+		if studentID, err := strconv.Atoi(studentIDStr); err == nil {
+			presentMap[studentID] = true
+		}
 	}
 
-	query := `
-		SELECT id FROM students s
+	// Get all students for this class
+	rows, err := database.DB.Query(`
+		SELECT s.id FROM students s
 		INNER JOIN student_classes sc ON s.id = sc.student_id
 		WHERE sc.class_id = $1 AND s.deleted_at IS NULL AND s.status = 'active'
-	`
-
-	rows, err := tx.Query(query, classID)
+	`, classID)
 	if err != nil {
 		logger.Error("failed to query students", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
-
 	var allStudentIDs []int
 	for rows.Next() {
 		var id int
@@ -154,40 +144,26 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 
-	presentMap := make(map[int]bool)
-	for _, studentIDStr := range presentStudents {
-		if studentID, err := strconv.Atoi(studentIDStr); err == nil {
-			presentMap[studentID] = true
-		}
-	}
-
-	presentCount := len(presentStudents)
-	absentCount := len(allStudentIDs) - presentCount
-
-	var attendanceID int
-	attendanceQuery := `
-		INSERT INTO attendance (class_id, date, present_count, absent_count)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (class_id, date) DO UPDATE
-		SET present_count = $3, absent_count = $4
-		RETURNING id
-	`
-
-	err = tx.QueryRow(attendanceQuery, classID, date, presentCount, absentCount).Scan(&attendanceID)
+	tx, err := database.DB.Begin()
 	if err != nil {
-		logger.Error("failed to insert attendance", "error", err)
+		logger.Error("failed to begin transaction", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer tx.Rollback()
 
 	for _, studentID := range allStudentIDs {
-		present := presentMap[studentID]
-		_, err := tx.Exec(
-			"INSERT INTO attendance_records (attendance_id, student_id, present, class_id, date) VALUES ($1, $2, $3, $4, $5)",
-			attendanceID, studentID, present, classID, date,
-		)
+		status := "absent"
+		if presentMap[studentID] {
+			status = "present"
+		}
+		_, err := tx.Exec(`
+			INSERT INTO attendance (student_id, class_id, date, status)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (student_id, class_id, date) DO UPDATE SET status = $4, updated_at = NOW()
+		`, studentID, classID, date, status)
 		if err != nil {
-			logger.Error("failed to insert attendance record", "error", err, "student_id", studentID)
+			logger.Error("failed to upsert attendance", "error", err, "student_id", studentID)
 		}
 	}
 
@@ -198,7 +174,6 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("attendance recorded", "class_id", classID, "date", dateStr, "user", user.Username)
-
 	http.Redirect(w, r, "/attendance/take", http.StatusSeeOther)
 }
 
@@ -397,14 +372,10 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 func getExistingAttendance(classID, dateStr string) (map[int]bool, error) {
-	query := `
-		SELECT ar.student_id, ar.present
-		FROM attendance_records ar
-		INNER JOIN attendance a ON ar.attendance_id = a.id
-		WHERE a.class_id = $1 AND a.date = $2
-	`
-
-	rows, err := database.DB.Query(query, classID, dateStr)
+	rows, err := database.DB.Query(`
+		SELECT student_id, status FROM attendance
+		WHERE class_id = $1 AND date = $2 AND deleted_at IS NULL
+	`, classID, dateStr)
 	if err != nil {
 		return nil, err
 	}
@@ -413,12 +384,11 @@ func getExistingAttendance(classID, dateStr string) (map[int]bool, error) {
 	attendance := make(map[int]bool)
 	for rows.Next() {
 		var studentID int
-		var present bool
-		if err := rows.Scan(&studentID, &present); err == nil {
-			attendance[studentID] = present
+		var status string
+		if err := rows.Scan(&studentID, &status); err == nil {
+			attendance[studentID] = status == "present"
 		}
 	}
-
 	return attendance, nil
 }
 
