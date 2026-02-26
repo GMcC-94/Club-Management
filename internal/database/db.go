@@ -13,11 +13,11 @@ var DB *sql.DB
 
 // Connect initializes the database connection
 func Connect() error {
-	host := getEnv("DB_HOST", "localhost")
-	port := getEnv("DB_PORT", "5432")
-	user := getEnv("DB_USER", "club_user")
-	password := getEnv("DB_PASSWORD", "")
-	dbname := getEnv("DB_NAME", "club_management")
+	host := getEnv("DB_HOST", os.Getenv("DB_HOST"))
+	port := getEnv("DB_PORT", os.Getenv("DB_PORT"))
+	user := getEnv("DB_USER", os.Getenv("DB_USER"))
+	password := getEnv("DB_PASSWORD", os.Getenv("DB_PASSWORD"))
+	dbname := getEnv("DB_NAME", os.Getenv("DB_NAME"))
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)

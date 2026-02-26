@@ -23,8 +23,6 @@ services:
     build: .
     container_name: club_app
     restart: unless-stopped
-    ports:
-      - "${APP_PORT}:8080"
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -34,11 +32,31 @@ services:
       PORT: 8080
       APP_ENV: ${APP_ENV}
       SESSION_SECRET: ${SESSION_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      APP_URL: ${APP_URL}
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./uploads:/root/uploads
+
+  caddy:
+    image: caddy:alpine
+    container_name: club_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
 
   backup:
     image: postgres:15-alpine
@@ -60,3 +78,5 @@ services:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
