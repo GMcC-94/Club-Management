@@ -2,8 +2,8 @@ package pages
 
 import (
 	"club-management/internal/types"
-	"club-management/web/templates/layout"
 	"club-management/web/templates/components"
+	"club-management/web/templates/layout"
 	"strconv"
 	"time"
 )
@@ -291,9 +291,10 @@ templ AttendanceEdit(user *types.User, class *types.Class, date time.Time, recor
 							<p class="text-white/70">{ date.Format("Monday, 02 January 2006") }</p>
 						</div>
 						<form method="POST" action="/attendance/update" id="editAttendanceForm">
-						@components.CSRFInput()
+							@components.CSRFInput()
 							<input type="hidden" name="class_id" value={ strconv.Itoa(class.ID) }/>
 							<input type="hidden" name="date" value={ date.Format("2006-01-02") }/>
+							<input type="hidden" name="attendance_id" value={ strconv.Itoa(records[0].ID) }/>
 							<div class="glass rounded-2xl p-6 mb-6">
 								<div class="flex items-center justify-between mb-4">
 									<h3 class="text-xl font-bold text-white">Students</h3>
@@ -360,9 +361,9 @@ templ AttendanceEditRow(record types.AttendanceEditRecord) {
 		<div class="flex items-center gap-4">
 			<input
 				type="checkbox"
-				name={ "student_" + strconv.Itoa(record.StudentID) }
+				name="present"
 				id={ "student_" + strconv.Itoa(record.StudentID) }
-				value="present"
+				value={ strconv.Itoa(record.StudentID) }
 				checked?={ record.Status == "present" }
 				onchange={ templ.ComponentScript{Call: "toggleAttendance(" + strconv.Itoa(record.StudentID) + ")"} }
 				class="w-6 h-6 rounded-lg"

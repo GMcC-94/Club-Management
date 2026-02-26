@@ -4,6 +4,7 @@ import (
 	"club-management/internal/logger"
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,11 @@ const CSRFTokenKey contextKey = "csrf_token"
 // RequestLogger logs every incoming request
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip logging for static files
+		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/favicon.ico" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		logger.Info("request",

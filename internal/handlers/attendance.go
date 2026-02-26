@@ -295,21 +295,45 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attendanceID, err := strconv.Atoi(r.URL.Query().Get("id"))
-	if err != nil {
-		http.Error(w, "Invalid attendance ID", http.StatusBadRequest)
-		return
-	}
-
+	classIDStr := r.FormValue("class_id")
+	dateStr := r.FormValue("date")
 	presentStudents := r.Form["present"]
 
-	var classID int
-	var date time.Time
-	err = database.DB.QueryRow("SELECT class_id, date FROM attendance WHERE id = $1", attendanceID).Scan(&classID, &date)
-	if err != nil {
-		http.Error(w, "Attendance not found", http.StatusNotFound)
+	if classIDStr == "" || dateStr == "" {
+		http.Error(w, "Missing parameters", http.StatusBadRequest)
 		return
 	}
+
+	classID, err := strconv.Atoi(classIDStr)
+	if err != nil {
+		http.Error(w, "Invalid class ID", http.StatusBadRequest)
+		return
+	}
+
+	presentMap := make(map[int]bool)
+	for _, studentIDStr := range presentStudents {
+		if studentID, err := strconv.Atoi(studentIDStr); err == nil {
+			presentMap[studentID] = true
+		}
+	}
+
+	rows, err := database.DB.Query(
+		`SELECT student_id FROM attendance WHERE class_id = $1 AND date = $2 AND deleted_at IS NULL`,
+		classID, dateStr,
+	)
+	if err != nil {
+		logger.Error("failed to query attendance", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	var allStudentIDs []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err == nil {
+			allStudentIDs = append(allStudentIDs, id)
+		}
+	}
+	rows.Close()
 
 	tx, err := database.DB.Begin()
 	if err != nil {
@@ -319,44 +343,19 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	var allStudentIDs []int
-	rows, err := tx.Query("SELECT student_id FROM attendance_records WHERE attendance_id = $1", attendanceID)
-	if err != nil {
-		logger.Error("failed to query attendance records", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err == nil {
-			allStudentIDs = append(allStudentIDs, id)
-		}
-	}
-	rows.Close()
-
-	presentMap := make(map[int]bool)
-	for _, studentIDStr := range presentStudents {
-		if studentID, err := strconv.Atoi(studentIDStr); err == nil {
-			presentMap[studentID] = true
-		}
-	}
-
 	for _, studentID := range allStudentIDs {
-		present := presentMap[studentID]
-		_, err := tx.Exec("UPDATE attendance_records SET present = $1 WHERE attendance_id = $2 AND student_id = $3", present, attendanceID, studentID)
-		if err != nil {
-			logger.Error("failed to update attendance record", "error", err, "student_id", studentID)
+		status := "absent"
+		if presentMap[studentID] {
+			status = "present"
 		}
-	}
-
-	presentCount := len(presentStudents)
-	absentCount := len(allStudentIDs) - presentCount
-
-	_, err = tx.Exec("UPDATE attendance SET present_count = $1, absent_count = $2 WHERE id = $3", presentCount, absentCount, attendanceID)
-	if err != nil {
-		logger.Error("failed to update attendance", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		_, err := tx.Exec(
+			`UPDATE attendance SET status = $1, updated_at = NOW() 
+			 WHERE student_id = $2 AND class_id = $3 AND date = $4`,
+			status, studentID, classID, dateStr,
+		)
+		if err != nil {
+			logger.Error("failed to update attendance", "error", err, "student_id", studentID)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -365,8 +364,7 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("attendance updated", "class_id", classID, "date", date.Format("2006-01-02"), "user", user.Username)
-
+	logger.Info("attendance updated", "class_id", classID, "date", dateStr, "user", user.Username)
 	http.Redirect(w, r, "/attendance", http.StatusSeeOther)
 }
 
