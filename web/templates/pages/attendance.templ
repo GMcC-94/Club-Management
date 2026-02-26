@@ -371,7 +371,6 @@ templ AttendanceEditRow(record types.AttendanceEditRecord) {
 			<div>
 				<div class="text-white font-semibold">{ record.StudentFirstName } { record.StudentLastName }</div>
 				<div class="text-white/70 text-sm">
-					{ record.BeltLevel }
 					if record.OffSchedule {
 						<span class="text-yellow-300 ml-2">(Off Schedule)</span>
 					}

@@ -32,7 +32,6 @@ templ AttendanceStudentRow(student types.Student, isOffSchedule bool) {
 			<div>
 				<div class="text-white font-semibold">{ student.FirstName } { student.LastName }</div>
 				<div class="text-white/70 text-sm">
-					{ student.BeltLevel }
 					if isOffSchedule {
 						<span class="text-yellow-300 ml-2">(Off Schedule)</span>
 					}
