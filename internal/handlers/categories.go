@@ -21,10 +21,10 @@ func CategoryList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT id, name, type
+		SELECT id, name
 		FROM categories
 		WHERE deleted_at IS NULL
-		ORDER BY type, name
+		ORDER BY name
 	`
 
 	rows, err := database.DB.Query(query)
@@ -38,7 +38,7 @@ func CategoryList(w http.ResponseWriter, r *http.Request) {
 	var categories []types.Category
 	for rows.Next() {
 		var c types.Category
-		err := rows.Scan(&c.ID, &c.Name, &c.Type)
+		err := rows.Scan(&c.ID, &c.Name)
 		if err != nil {
 			log.Printf("Error scanning category: %v", err)
 			continue
@@ -63,22 +63,21 @@ func CategoryCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue("name")
-	catType := r.FormValue("type")
 
-	if name == "" || catType == "" {
+	if name == "" {
 		http.Error(w, "Required fields missing", http.StatusBadRequest)
 		return
 	}
 
-	query := `INSERT INTO categories (name, type) VALUES ($1, $2)`
-	_, err = database.DB.Exec(query, name, catType)
+	query := `INSERT INTO categories (name) VALUES ($1)`
+	_, err = database.DB.Exec(query, name)
 	if err != nil {
-		logger.Error("failed to create category", "error", err, "name", name, "type", catType, "user", user.Username)
+		logger.Error("failed to create category", "error", err, "name", name, "user", user.Username)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Info("category created", "name", name, "type", catType, "user", user.Username)
+	logger.Info("category created", "name", name, "user", user.Username)
 
 	http.Redirect(w, r, "/categories/manage", http.StatusSeeOther)
 }
@@ -113,10 +112,10 @@ func CategoryDelete(w http.ResponseWriter, r *http.Request) {
 // Helper function
 func getAllCategories() ([]types.Category, error) {
 	query := `
-		SELECT id, name, type
+		SELECT id, name
 		FROM categories
 		WHERE deleted_at IS NULL
-		ORDER BY type, name
+		ORDER BY name
 	`
 
 	rows, err := database.DB.Query(query)
@@ -128,7 +127,7 @@ func getAllCategories() ([]types.Category, error) {
 	var categories []types.Category
 	for rows.Next() {
 		var c types.Category
-		err := rows.Scan(&c.ID, &c.Name, &c.Type)
+		err := rows.Scan(&c.ID, &c.Name)
 		if err != nil {
 			continue
 		}

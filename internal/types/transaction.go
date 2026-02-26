@@ -27,7 +27,6 @@ type Transaction struct {
 type Category struct {
 	ID        int
 	Name      string
-	Type      string // "income" or "expenditure"
 	CreatedAt time.Time
 	DeletedAt sql.NullTime
 }

@@ -2,8 +2,8 @@ package pages
 
 import (
 	"club-management/internal/types"
-	"club-management/web/templates/layout"
 	"club-management/web/templates/components"
+	"club-management/web/templates/layout"
 	"strconv"
 )
 
@@ -17,7 +17,7 @@ templ Categories(user *types.User, categories []types.Category) {
 					<div class="glass rounded-2xl p-6 mb-6">
 						<h3 class="text-xl font-bold text-white mb-4">Add New Category</h3>
 						<form method="POST" action="/categories/create" class="flex gap-4">
-						@components.CSRFInput()
+							@components.CSRFInput()
 							<input
 								type="text"
 								name="name"
