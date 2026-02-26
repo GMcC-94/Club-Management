@@ -78,7 +78,7 @@ func LoadStudentsForClass(w http.ResponseWriter, r *http.Request) {
 		if existingAttendance != nil && existingAttendance[s.ID] {
 			checked = "checked"
 		}
-		w.Write([]byte(`<label class="flex items-center gap-2 p-2 hover:bg-white/5 rounded"><input type="checkbox" name="present" value="` + strconv.Itoa(s.ID) + `" ` + checked + ` class="form-checkbox"><span>` + s.FirstName + ` ` + s.LastName + ` (` + s.BeltLevel + `)</span></label>`))
+		w.Write([]byte(`<label class="flex items-center gap-2 p-2 hover:bg-white/5 rounded"><input type="checkbox" name="present" value="` + strconv.Itoa(s.ID) + `" ` + checked + ` class="form-checkbox"><span>` + s.FirstName + ` ` + s.LastName + `</span></label>`))
 	}
 }
 
