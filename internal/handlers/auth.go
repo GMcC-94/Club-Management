@@ -25,7 +25,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.AuthenticateUser(username, password)
 	if err != nil {
 		logger.Warn("failed login attempt", "username", username, "ip", r.RemoteAddr)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		pages.Login("Invalid username or password").Render(r.Context(), w)
 		return
 	}
 
