@@ -2,8 +2,8 @@ package pages
 
 import (
 	"club-management/internal/types"
-	"club-management/web/templates/layout"
 	"club-management/web/templates/components"
+	"club-management/web/templates/layout"
 )
 
 templ Dashboard(user *types.User) {
@@ -65,6 +65,20 @@ templ Dashboard(user *types.User) {
 								"Settings",
 								"Configure club information and preferences",
 								"/settings",
+								"chart",
+							)
+						}
+						if user.Role == "treasurer" {
+							@components.QuickActionCard(
+								"Financial Tracking",
+								"Record income and expenses",
+								"/transactions",
+								"chart",
+							)
+							@components.QuickActionCard(
+								"Reports & Analytics",
+								"View financial reports",
+								"/reports",
 								"chart",
 							)
 						}
