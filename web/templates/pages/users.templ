@@ -2,8 +2,8 @@ package pages
 
 import (
 	"club-management/internal/types"
-	"club-management/web/templates/layout"
 	"club-management/web/templates/components"
+	"club-management/web/templates/layout"
 	"fmt"
 )
 
@@ -44,6 +44,8 @@ templ UserList(user *types.User, users []types.User) {
 												<td class="px-6 py-4">
 													if u.Role == "admin" {
 														@components.Badge("Admin", "success")
+													} else if u.Role == "treasurer" {
+														@components.Badge("Treasurer", "warning")
 													} else {
 														@components.Badge("Coach", "")
 													}
@@ -236,5 +238,5 @@ func getUserRole(user *types.User) string {
 	if user != nil {
 		return user.Role
 	}
-	return "coach"
+	return ""
 }
