@@ -69,7 +69,7 @@ templ UserList(user *types.User, users []types.User) {
 	}
 }
 
-templ UserNew(user *types.User) {
+templ UserNew(user *types.User, errMsg string, username string, email string) {
 	@layout.Base("Add User", user) {
 		<div class="min-h-screen">
 			@components.PageHeader("Add User", "/users", false, "")
@@ -80,7 +80,12 @@ templ UserNew(user *types.User) {
 							<h2 class="text-2xl font-bold text-white mb-2">New User</h2>
 							<p class="text-white/70">Create a new user account</p>
 						</div>
-						@UserForm(nil, false)
+						if errMsg != "" {
+							<div class="bg-red-500/20 border border-red-400/50 text-white px-4 py-3 rounded-lg mb-6">
+								<p class="text-sm">{ errMsg }</p>
+							</div>
+						}
+						@UserForm(nil, false, username, email)
 					</div>
 				</div>
 			</div>
@@ -99,7 +104,7 @@ templ UserEdit(currentUser *types.User, editUser *types.User) {
 							<h2 class="text-2xl font-bold text-white mb-2">{ editUser.Username }</h2>
 							<p class="text-white/70">Update user details</p>
 						</div>
-						@UserForm(editUser, true)
+						@UserForm(editUser, true, "", "")
 					</div>
 					if editUser.ID != currentUser.ID {
 						<div class="mt-6 glass rounded-2xl p-6">
@@ -127,7 +132,7 @@ templ UserEdit(currentUser *types.User, editUser *types.User) {
 	}
 }
 
-templ UserForm(user *types.User, isEdit bool) {
+templ UserForm(user *types.User, isEdit bool, prefillUsername string, prefillEmail string) {
 	<form method="POST" action={ templ.URL(getUserFormAction(isEdit, user)) } class="space-y-6">
 		@components.CSRFInput()
 		<!-- Username -->
@@ -137,7 +142,7 @@ templ UserForm(user *types.User, isEdit bool) {
 				type="text"
 				id="username"
 				name="username"
-				value={ getUserUsername(user) }
+				value={ getUserUsername(user, prefillUsername) }
 				required
 				class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
 				placeholder="e.g., john.smith"
@@ -150,7 +155,7 @@ templ UserForm(user *types.User, isEdit bool) {
 				type="email"
 				id="email"
 				name="email"
-				value={ getUserEmail(user) }
+				value={ getUserEmail(user, prefillEmail) }
 				required
 				class="w-full px-4 py-3 rounded-lg glass text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
 				placeholder="e.g., john.smith@club.com"
@@ -220,18 +225,18 @@ func getUserFormAction(isEdit bool, user *types.User) string {
 	return "/users/create"
 }
 
-func getUserUsername(user *types.User) string {
+func getUserUsername(user *types.User, prefill string) string {
 	if user != nil {
 		return user.Username
 	}
-	return ""
+	return prefill
 }
 
-func getUserEmail(user *types.User) string {
+func getUserEmail(user *types.User, prefill string) string {
 	if user != nil {
 		return user.Email.String
 	}
-	return ""
+	return prefill
 }
 
 func getUserRole(user *types.User) string {

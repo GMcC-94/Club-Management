@@ -51,15 +51,13 @@ func UserList(w http.ResponseWriter, r *http.Request) {
 	pages.UserList(user, users).Render(r.Context(), w)
 }
 
-// UserNew shows the form for creating a new user
 func UserNew(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-
-	pages.UserNew(user).Render(r.Context(), w)
+	pages.UserNew(user, "", "", "").Render(r.Context(), w)
 }
 
 // UserEdit shows the form for editing a user
@@ -104,24 +102,23 @@ func UserCreate(w http.ResponseWriter, r *http.Request) {
 	role := r.FormValue("role")
 
 	if username == "" || email == "" || password == "" || role == "" {
-		http.Error(w, "Required fields missing", http.StatusBadRequest)
+		pages.UserNew(user, "All fields are required", username, email).Render(r.Context(), w)
 		return
 	}
 
 	if role != "admin" && role != "coach" && role != "treasurer" {
-		http.Error(w, "Invalid role", http.StatusBadRequest)
+		pages.UserNew(user, "Invalid role selected", username, email).Render(r.Context(), w)
 		return
 	}
 
 	err = auth.CreateUser(username, password, email, role)
 	if err != nil {
 		logger.Error("failed to create user", "error", err, "username", username, "created_by", user.Username)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		pages.UserNew(user, err.Error(), username, email).Render(r.Context(), w)
 		return
 	}
 
 	logger.Info("user created", "username", username, "role", role, "created_by", user.Username)
-
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
