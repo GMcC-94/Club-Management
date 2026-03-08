@@ -6,6 +6,7 @@ import (
 	"club-management/internal/handlers"
 	"club-management/internal/logger"
 	"club-management/internal/middleware"
+	"club-management/internal/repository"
 	"fmt"
 	"net/http"
 	"os"
@@ -37,6 +38,12 @@ func main() {
 		})),
 	)
 
+	// Initialise repositories
+	attendanceRepo := repository.NewAttendanceRepository()
+
+	// Initialise handlers
+	attendanceHandler := handlers.NewAttendanceHandler(attendanceRepo)
+
 	mux := http.NewServeMux()
 
 	// Static files
@@ -54,7 +61,7 @@ func main() {
 	mux.HandleFunc("/attendance", auth.RequireAuth(handlers.AttendanceList))
 	mux.HandleFunc("/attendance/take", auth.RequireAuth(handlers.TakeAttendance))
 	mux.HandleFunc("/attendance/submit", auth.RequireAuth(handlers.SubmitAttendance))
-	mux.HandleFunc("/attendance/students", auth.RequireAuth(handlers.GetClassStudents))
+	mux.HandleFunc("/attendance/students", auth.RequireAuth(attendanceHandler.LoadStudentsForClass))
 	mux.HandleFunc("/attendance/students/search", auth.RequireAuth(handlers.SearchStudents))
 	mux.HandleFunc("/attendance/edit", auth.RequireAuth(handlers.AttendanceEdit))
 	mux.HandleFunc("/attendance/update", auth.RequireAuth(handlers.AttendanceUpdate))

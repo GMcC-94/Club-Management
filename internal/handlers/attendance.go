@@ -4,6 +4,7 @@ import (
 	"club-management/internal/auth"
 	"club-management/internal/database"
 	"club-management/internal/logger"
+	"club-management/internal/repository"
 	"club-management/internal/types"
 	"club-management/web/templates/pages"
 	"log"
@@ -11,6 +12,14 @@ import (
 	"strconv"
 	"time"
 )
+
+type AttendanceHandler struct {
+	repo repository.AttendanceRepository
+}
+
+func NewAttendanceHandler(repo repository.AttendanceRepository) *AttendanceHandler {
+	return &AttendanceHandler{repo: repo}
+}
 
 // TakeAttendance shows the form for taking attendance
 func TakeAttendance(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +39,7 @@ func TakeAttendance(w http.ResponseWriter, r *http.Request) {
 }
 
 // LoadStudentsForClass returns students for a specific class
-func LoadStudentsForClass(w http.ResponseWriter, r *http.Request) {
+func (h *AttendanceHandler) LoadStudentsForClass(w http.ResponseWriter, r *http.Request) {
 	classID := r.URL.Query().Get("class_id")
 	dateStr := r.URL.Query().Get("date")
 
@@ -39,36 +48,16 @@ func LoadStudentsForClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `
-		SELECT s.id, s.first_name, s.last_name, s.belt_level, s.status
-		FROM students s
-		INNER JOIN student_classes sc ON s.id = sc.student_id
-		WHERE sc.class_id = $1 AND s.deleted_at IS NULL AND s.status = 'active'
-		ORDER BY s.first_name, s.last_name
-	`
-
-	rows, err := database.DB.Query(query, classID)
+	students, err := h.repo.GetStudentsForClass(classID)
 	if err != nil {
-		log.Printf("Error querying students: %v", err)
+		logger.Error("failed to query students", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
 
-	var students []types.Student
-	for rows.Next() {
-		var s types.Student
-		err := rows.Scan(&s.ID, &s.FirstName, &s.LastName, &s.BeltLevel, &s.Status)
-		if err != nil {
-			log.Printf("Error scanning student: %v", err)
-			continue
-		}
-		students = append(students, s)
-	}
-
-	existingAttendance, err := getExistingAttendance(classID, dateStr)
+	existingAttendance, err := h.repo.GetExistingAttendance(classID, dateStr)
 	if err != nil {
-		log.Printf("Error loading existing attendance: %v", err)
+		logger.Error("failed to load existing attendance", "error", err)
 	}
 
 	// Return simple HTML fragment with student checkboxes
@@ -368,28 +357,6 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/attendance", http.StatusSeeOther)
 }
 
-// Helper functions
-func getExistingAttendance(classID, dateStr string) (map[int]bool, error) {
-	rows, err := database.DB.Query(`
-		SELECT student_id, status FROM attendance
-		WHERE class_id = $1 AND date = $2 AND deleted_at IS NULL
-	`, classID, dateStr)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	attendance := make(map[int]bool)
-	for rows.Next() {
-		var studentID int
-		var status string
-		if err := rows.Scan(&studentID, &status); err == nil {
-			attendance[studentID] = status == "present"
-		}
-	}
-	return attendance, nil
-}
-
 func mustAtoi(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
@@ -398,11 +365,6 @@ func mustAtoi(s string) int {
 // AttendanceList is an alias for AttendanceHistory
 func AttendanceList(w http.ResponseWriter, r *http.Request) {
 	AttendanceHistory(w, r)
-}
-
-// GetClassStudents returns students for a specific class (alias for LoadStudentsForClass)
-func GetClassStudents(w http.ResponseWriter, r *http.Request) {
-	LoadStudentsForClass(w, r)
 }
 
 // SearchStudents searches for students by name
