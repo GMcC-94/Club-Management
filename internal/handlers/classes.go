@@ -4,6 +4,7 @@ import (
 	"club-management/internal/auth"
 	"club-management/internal/database"
 	"club-management/internal/logger"
+	"club-management/internal/repository"
 	"club-management/internal/types"
 	"club-management/web/templates/pages"
 	"database/sql"
@@ -13,45 +14,37 @@ import (
 	"time"
 )
 
-// ClassList shows all classes
-func ClassList(w http.ResponseWriter, r *http.Request) {
+// ClassHandler handles all class-related HTTP requests.
+type ClassHandler struct {
+	reader repository.ClassReader
+	writer repository.ClassWriter
+}
+
+// NewClassHandler creates a ClassHandler with the given dependencies.
+func NewClassHandler(reader repository.ClassReader, writer repository.ClassWriter) *ClassHandler {
+	return &ClassHandler{reader: reader, writer: writer}
+}
+
+// List shows all classes.
+func (h *ClassHandler) List(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	query := `
-		SELECT id, name, day_of_week, start_time, end_time, is_active
-		FROM classes
-		WHERE deleted_at IS NULL
-		ORDER BY day_of_week, start_time
-	`
-
-	rows, err := database.DB.Query(query)
+	classes, err := h.reader.List()
 	if err != nil {
-		log.Printf("Error querying classes: %v", err)
+		logger.Error("failed to list classes", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	var classes []types.Class
-	for rows.Next() {
-		var c types.Class
-		err := rows.Scan(&c.ID, &c.Name, &c.DayOfWeek, &c.StartTime, &c.EndTime, &c.IsActive)
-		if err != nil {
-			log.Printf("Error scanning class: %v", err)
-			continue
-		}
-		classes = append(classes, c)
 	}
 
 	pages.Classes(user, classes).Render(r.Context(), w)
 }
 
-// ClassNew shows the form for creating a new class
-func ClassNew(w http.ResponseWriter, r *http.Request) {
+// New shows the form for creating a new class.
+func (h *ClassHandler) New(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -61,8 +54,8 @@ func ClassNew(w http.ResponseWriter, r *http.Request) {
 	pages.ClassNew(user).Render(r.Context(), w)
 }
 
-// ClassEdit shows the form for editing a class
-func ClassEdit(w http.ResponseWriter, r *http.Request) {
+// Edit shows the form for editing a class.
+func (h *ClassHandler) Edit(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -75,7 +68,7 @@ func ClassEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	class, err := getClassByID(classID)
+	class, err := h.reader.GetByID(classID)
 	if err != nil {
 		http.Error(w, "Class not found", http.StatusNotFound)
 		return
@@ -84,8 +77,8 @@ func ClassEdit(w http.ResponseWriter, r *http.Request) {
 	pages.ClassEdit(user, class).Render(r.Context(), w)
 }
 
-// ClassCreate handles the form submission for creating a class
-func ClassCreate(w http.ResponseWriter, r *http.Request) {
+// Create handles the form submission for creating a class.
+func (h *ClassHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -130,25 +123,18 @@ func ClassCreate(w http.ResponseWriter, r *http.Request) {
 
 	isActive := isActiveStr == "true"
 
-	query := `
-		INSERT INTO classes (name, day_of_week, start_time, end_time, is_active, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`
-
-	_, err = database.DB.Exec(query, name, dayOfWeek, startTime, endTime, isActive, time.Now())
-	if err != nil {
+	if err := h.writer.Create(name, dayOfWeek, startTime, endTime, isActive); err != nil {
 		logger.Error("failed to create class", "error", err, "name", name, "user", user.Username)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logger.Info("class created", "name", name, "day_of_week", dayOfWeek, "user", user.Username)
-
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)
 }
 
-// ClassUpdate handles the form submission for updating a class
-func ClassUpdate(w http.ResponseWriter, r *http.Request) {
+// Update handles the form submission for updating a class.
+func (h *ClassHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -199,26 +185,18 @@ func ClassUpdate(w http.ResponseWriter, r *http.Request) {
 
 	isActive := isActiveStr == "true"
 
-	query := `
-		UPDATE classes
-		SET name = $1, day_of_week = $2, start_time = $3, end_time = $4, is_active = $5, updated_at = $6
-		WHERE id = $7 AND deleted_at IS NULL
-	`
-
-	_, err = database.DB.Exec(query, name, dayOfWeek, startTime, endTime, isActive, time.Now(), classID)
-	if err != nil {
+	if err := h.writer.Update(classID, name, dayOfWeek, startTime, endTime, isActive); err != nil {
 		logger.Error("failed to update class", "error", err, "class_id", classID, "user", user.Username)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logger.Info("class updated", "class_id", classID, "name", name, "user", user.Username)
-
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)
 }
 
-// ClassDelete handles soft-deleting a class
-func ClassDelete(w http.ResponseWriter, r *http.Request) {
+// Delete handles soft-deleting a class.
+func (h *ClassHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -231,20 +209,22 @@ func ClassDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `UPDATE classes SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`
-	_, err = database.DB.Exec(query, time.Now(), classID)
-	if err != nil {
+	if err := h.writer.SoftDelete(classID); err != nil {
 		logger.Error("failed to delete class", "error", err, "class_id", classID, "user", user.Username)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logger.Info("class deleted", "class_id", classID, "user", user.Username)
-
 	http.Redirect(w, r, "/classes", http.StatusSeeOther)
 }
 
-// Helper functions
+// ---------------------------------------------------------------------------
+// Legacy helper functions — still used by other handlers (students, attendance,
+// reports) that haven't been migrated yet. Remove once those domains use
+// ClassReader via their own handler structs.
+// ---------------------------------------------------------------------------
+
 func getClassByID(id int) (*types.Class, error) {
 	query := `
 		SELECT id, name, day_of_week, start_time, end_time, is_active
@@ -280,6 +260,7 @@ func getActiveClasses() ([]types.Class, error) {
 		var c types.Class
 		err := rows.Scan(&c.ID, &c.Name, &c.DayOfWeek, &c.StartTime, &c.EndTime, &c.IsActive)
 		if err != nil {
+			log.Printf("Error scanning class: %v", err)
 			continue
 		}
 		classes = append(classes, c)
