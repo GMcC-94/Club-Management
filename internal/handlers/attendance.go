@@ -2,43 +2,44 @@ package handlers
 
 import (
 	"club-management/internal/auth"
-	"club-management/internal/database"
 	"club-management/internal/logger"
 	"club-management/internal/repository"
-	"club-management/internal/types"
 	"club-management/web/templates/pages"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 )
 
+// AttendanceHandler handles all attendance-related HTTP requests.
 type AttendanceHandler struct {
-	repo repository.AttendanceRepository
+	reader      repository.AttendanceReader
+	writer      repository.AttendanceWriter
+	classReader repository.ClassReader
 }
 
-func NewAttendanceHandler(repo repository.AttendanceRepository) *AttendanceHandler {
-	return &AttendanceHandler{repo: repo}
+// NewAttendanceHandler creates an AttendanceHandler with the given dependencies.
+func NewAttendanceHandler(reader repository.AttendanceReader, writer repository.AttendanceWriter, classReader repository.ClassReader) *AttendanceHandler {
+	return &AttendanceHandler{reader: reader, writer: writer, classReader: classReader}
 }
 
-// TakeAttendance shows the form for taking attendance
-func TakeAttendance(w http.ResponseWriter, r *http.Request) {
+// Take shows the form for taking attendance.
+func (h *AttendanceHandler) Take(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	classes, err := getActiveClasses()
+	classes, err := h.classReader.GetActive()
 	if err != nil {
-		log.Printf("Error loading classes: %v", err)
+		logger.Error("failed to load classes", "error", err)
 	}
 
 	today := time.Now().Format("2006-01-02")
 	pages.TakeAttendance(user, classes, today).Render(r.Context(), w)
 }
 
-// LoadStudentsForClass returns students for a specific class
+// LoadStudentsForClass returns students for a specific class as an HTML fragment (HTMX endpoint).
 func (h *AttendanceHandler) LoadStudentsForClass(w http.ResponseWriter, r *http.Request) {
 	classID := r.URL.Query().Get("class_id")
 	dateStr := r.URL.Query().Get("date")
@@ -48,19 +49,18 @@ func (h *AttendanceHandler) LoadStudentsForClass(w http.ResponseWriter, r *http.
 		return
 	}
 
-	students, err := h.repo.GetStudentsForClass(classID)
+	students, err := h.reader.GetStudentsForClass(classID)
 	if err != nil {
 		logger.Error("failed to query students", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	existingAttendance, err := h.repo.GetExistingAttendance(classID, dateStr)
+	existingAttendance, err := h.reader.GetExistingAttendance(classID, dateStr)
 	if err != nil {
 		logger.Error("failed to load existing attendance", "error", err)
 	}
 
-	// Return simple HTML fragment with student checkboxes
 	w.Header().Set("Content-Type", "text/html")
 	for _, s := range students {
 		checked := ""
@@ -71,8 +71,8 @@ func (h *AttendanceHandler) LoadStudentsForClass(w http.ResponseWriter, r *http.
 	}
 }
 
-// SubmitAttendance handles the form submission for recording attendance
-func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
+// Submit handles the form submission for recording attendance.
+func (h *AttendanceHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -105,7 +105,6 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build present map
 	presentMap := make(map[int]bool)
 	for _, studentIDStr := range presentStudents {
 		if studentID, err := strconv.Atoi(studentIDStr); err == nil {
@@ -113,51 +112,15 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get all students for this class
-	rows, err := database.DB.Query(`
-		SELECT s.id FROM students s
-		INNER JOIN student_classes sc ON s.id = sc.student_id
-		WHERE sc.class_id = $1 AND s.deleted_at IS NULL AND s.status = 'active'
-	`, classID)
+	allStudentIDs, err := h.reader.GetAllStudentIDsForClass(classID)
 	if err != nil {
 		logger.Error("failed to query students", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	var allStudentIDs []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err == nil {
-			allStudentIDs = append(allStudentIDs, id)
-		}
-	}
-	rows.Close()
 
-	tx, err := database.DB.Begin()
-	if err != nil {
-		logger.Error("failed to begin transaction", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	for _, studentID := range allStudentIDs {
-		status := "absent"
-		if presentMap[studentID] {
-			status = "present"
-		}
-		_, err := tx.Exec(`
-			INSERT INTO attendance (student_id, class_id, date, status)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (student_id, class_id, date) DO UPDATE SET status = $4, updated_at = NOW()
-		`, studentID, classID, date, status)
-		if err != nil {
-			logger.Error("failed to upsert attendance", "error", err, "student_id", studentID)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		logger.Error("failed to commit transaction", "error", err)
+	if err := h.writer.UpsertAttendance(classID, date, allStudentIDs, presentMap); err != nil {
+		logger.Error("failed to submit attendance", "error", err, "class_id", classID, "date", dateStr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -166,48 +129,26 @@ func SubmitAttendance(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/attendance/take", http.StatusSeeOther)
 }
 
-// AttendanceHistory shows historical attendance records
-func AttendanceHistory(w http.ResponseWriter, r *http.Request) {
+// List shows historical attendance records.
+func (h *AttendanceHandler) List(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	query := `
-		SELECT a.id, a.student_id, a.class_id, a.date, a.status, a.off_schedule,
-		       s.first_name, s.last_name, c.name as class_name
-		FROM attendance a
-		LEFT JOIN students s ON a.student_id = s.id
-		LEFT JOIN classes c ON a.class_id = c.id
-		ORDER BY a.date DESC, a.class_id
-		LIMIT 500
-	`
-
-	rows, err := database.DB.Query(query)
+	records, err := h.reader.ListHistory()
 	if err != nil {
-		log.Printf("Error querying attendance: %v", err)
+		logger.Error("failed to query attendance history", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	var records []types.AttendanceRecord
-	for rows.Next() {
-		var r types.AttendanceRecord
-		err := rows.Scan(&r.ID, &r.StudentID, &r.ClassID, &r.Date, &r.Status, &r.OffSchedule, &r.StudentFirstName, &r.StudentLastName, &r.ClassName)
-		if err != nil {
-			log.Printf("Error scanning row: %v", err)
-			continue
-		}
-		records = append(records, r)
 	}
 
 	pages.AttendanceHistory(user, records).Render(r.Context(), w)
 }
 
-// AttendanceEdit shows the form for editing attendance for a specific class/date
-func AttendanceEdit(w http.ResponseWriter, r *http.Request) {
+// Edit shows the form for editing attendance for a specific class/date.
+func (h *AttendanceHandler) Edit(w http.ResponseWriter, r *http.Request) {
 	user, err := auth.GetCurrentUser(r)
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -234,45 +175,24 @@ func AttendanceEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	class, err := getClassByID(classID)
+	class, err := h.classReader.GetByID(classID)
 	if err != nil {
 		http.Error(w, "Class not found", http.StatusNotFound)
 		return
 	}
 
-	query := `
-		SELECT a.id, a.student_id, a.status, a.off_schedule,
-		       s.first_name, s.last_name, s.belt_level
-		FROM attendance a
-		INNER JOIN students s ON a.student_id = s.id
-		WHERE a.class_id = $1 AND a.date = $2
-		ORDER BY s.first_name, s.last_name
-	`
-
-	rows, err := database.DB.Query(query, classID, date)
+	records, err := h.reader.GetEditRecords(classID, date)
 	if err != nil {
-		log.Printf("Error querying attendance: %v", err)
+		logger.Error("failed to query attendance records", "error", err, "class_id", classID, "date", dateStr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	var records []types.AttendanceEditRecord
-	for rows.Next() {
-		var r types.AttendanceEditRecord
-		err := rows.Scan(&r.ID, &r.StudentID, &r.Status, &r.OffSchedule, &r.StudentFirstName, &r.StudentLastName, &r.BeltLevel)
-		if err != nil {
-			log.Printf("Error scanning record: %v", err)
-			continue
-		}
-		records = append(records, r)
 	}
 
 	pages.AttendanceEdit(user, class, date, records).Render(r.Context(), w)
 }
 
-// AttendanceUpdate handles updating existing attendance
-func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
+// Update handles updating existing attendance for a class/date.
+func (h *AttendanceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -306,107 +226,19 @@ func AttendanceUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rows, err := database.DB.Query(
-		`SELECT student_id FROM attendance WHERE class_id = $1 AND date = $2 AND deleted_at IS NULL`,
-		classID, dateStr,
-	)
+	allStudentIDs, err := h.reader.GetAttendanceStudentIDs(classID, dateStr)
 	if err != nil {
 		logger.Error("failed to query attendance", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	var allStudentIDs []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err == nil {
-			allStudentIDs = append(allStudentIDs, id)
-		}
-	}
-	rows.Close()
 
-	tx, err := database.DB.Begin()
-	if err != nil {
-		logger.Error("failed to begin transaction", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	for _, studentID := range allStudentIDs {
-		status := "absent"
-		if presentMap[studentID] {
-			status = "present"
-		}
-		_, err := tx.Exec(
-			`UPDATE attendance SET status = $1, updated_at = NOW() 
-			 WHERE student_id = $2 AND class_id = $3 AND date = $4`,
-			status, studentID, classID, dateStr,
-		)
-		if err != nil {
-			logger.Error("failed to update attendance", "error", err, "student_id", studentID)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		logger.Error("failed to commit transaction", "error", err)
+	if err := h.writer.UpdateAttendance(classID, dateStr, allStudentIDs, presentMap); err != nil {
+		logger.Error("failed to update attendance", "error", err, "class_id", classID, "date", dateStr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logger.Info("attendance updated", "class_id", classID, "date", dateStr, "user", user.Username)
 	http.Redirect(w, r, "/attendance", http.StatusSeeOther)
-}
-
-func mustAtoi(s string) int {
-	i, _ := strconv.Atoi(s)
-	return i
-}
-
-// AttendanceList is an alias for AttendanceHistory
-func AttendanceList(w http.ResponseWriter, r *http.Request) {
-	AttendanceHistory(w, r)
-}
-
-// SearchStudents searches for students by name
-func SearchStudents(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	if query == "" {
-		http.Error(w, "Missing search query", http.StatusBadRequest)
-		return
-	}
-
-	searchQuery := `
-		SELECT id, first_name, last_name, belt_level, status
-		FROM students
-		WHERE deleted_at IS NULL 
-		AND status = 'active'
-		AND (LOWER(first_name) LIKE LOWER($1) OR LOWER(last_name) LIKE LOWER($1))
-		ORDER BY first_name, last_name
-		LIMIT 20
-	`
-
-	rows, err := database.DB.Query(searchQuery, "%"+query+"%")
-	if err != nil {
-		log.Printf("Error searching students: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var students []types.Student
-	for rows.Next() {
-		var s types.Student
-		err := rows.Scan(&s.ID, &s.FirstName, &s.LastName, &s.BeltLevel, &s.Status)
-		if err != nil {
-			log.Printf("Error scanning student: %v", err)
-			continue
-		}
-		students = append(students, s)
-	}
-
-	// Return simple HTML fragment with student results
-	w.Header().Set("Content-Type", "text/html")
-	for _, s := range students {
-		w.Write([]byte(`<div class="p-2 hover:bg-white/5 rounded cursor-pointer">` + s.FirstName + ` ` + s.LastName + ` (` + s.BeltLevel + `)</div>`))
-	}
 }
